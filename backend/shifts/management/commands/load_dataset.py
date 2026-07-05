@@ -1,0 +1,39 @@
+from django.conf import settings
+from django.core.management.base import BaseCommand, CommandError
+
+from shifts.cleaning import ingest_csv
+
+
+class Command(BaseCommand):
+    help = "Load and clean a shift CSV into the database (defaults to the bundled dataset)."
+
+    def add_arguments(self, parser):
+        parser.add_argument(
+            "--path",
+            default=settings.DEFAULT_DATASET_PATH,
+            help="Path to the CSV to load. Defaults to settings.DEFAULT_DATASET_PATH.",
+        )
+        parser.add_argument(
+            "--replace",
+            action="store_true",
+            help="Delete existing records before loading (default behaviour).",
+        )
+
+    def handle(self, *args, **options):
+        path = options["path"]
+        try:
+            summary = ingest_csv(path, replace=True)
+        except FileNotFoundError:
+            raise CommandError(f"Dataset not found: {path}")
+        except ValueError as exc:
+            raise CommandError(str(exc))
+
+        self.stdout.write(self.style.SUCCESS(f"Loaded {path}"))
+        self.stdout.write(
+            f"  total={summary['total']}  valid={summary['valid']}  invalid={summary['invalid']}"
+        )
+        self.stdout.write("  issues detected:")
+        if not summary["issue_counts"]:
+            self.stdout.write("    (none)")
+        for code, count in summary["issue_counts"].items():
+            self.stdout.write(f"    {code:<18} {count}")

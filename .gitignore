@@ -1,0 +1,37 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# --- Virtual environments ---
+.venv/
+venv/
+env/
+
+# --- Django ---
+db.sqlite3
+db.sqlite3-journal
+*.log
+/staticfiles/
+/backend/staticfiles/
+
+# --- Secrets / local config (keep .env.example) ---
+.env
+.env.*
+!.env.example
+
+# --- Node / React (frontend, Day-3) ---
+node_modules/
+dist/
+.vite/
+*.local
+
+# --- OS / editor ---
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# --- Assignment reference (not part of the public repo) ---
+Assignment Guideline.pdf
