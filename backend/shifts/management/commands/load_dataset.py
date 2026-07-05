@@ -28,6 +28,17 @@ class Command(BaseCommand):
         except ValueError as exc:
             raise CommandError(str(exc))
 
+        # Mark the active source. The bundled dataset reads as "Sample dataset";
+        # any other CLI-loaded file uses its filename.
+        from pathlib import Path
+
+        from shifts.models import DatasetMeta
+
+        is_default = str(path) == str(settings.DEFAULT_DATASET_PATH)
+        DatasetMeta.set_active(
+            "Sample dataset" if is_default else Path(path).name, is_custom=False
+        )
+
         self.stdout.write(self.style.SUCCESS(f"Loaded {path}"))
         self.stdout.write(
             f"  total={summary['total']}  valid={summary['valid']}  invalid={summary['invalid']}"

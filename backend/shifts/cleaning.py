@@ -14,7 +14,9 @@ when they disagree we trust the timestamps and recompute HOURS.
 from __future__ import annotations
 
 import math
-from datetime import datetime, date
+from datetime import datetime, date, timezone
+
+import json
 
 import pandas as pd
 
@@ -39,30 +41,46 @@ EXPECTED_COLUMNS = ["DAY_DATE", "START", "END", "HOURS", "REASON"]
 
 
 # --- Low-level parsers ------------------------------------------------------
+# Accepted DAY_DATE formats. M/D/YYYY is the primary (bundled) form; the others
+# make the parser tolerant of Excel/JSON exports that store ISO-style dates.
+_DATE_FORMATS = ("%m/%d/%Y", "%Y-%m-%d", "%m-%d-%Y")
+
+
 def _parse_date(value) -> date | None:
-    """Parse the M/D/YYYY DAY_DATE column. Returns None if unparseable."""
+    """Parse the DAY_DATE column across common formats. None if unparseable."""
     if value is None:
         return None
     text = str(value).strip()
     if not text:
         return None
+    for fmt in _DATE_FORMATS:
+        try:
+            return datetime.strptime(text, fmt).date()
+        except ValueError:
+            continue
+    # Excel may hand back a full datetime string ("2025-10-21 07:00:00").
     try:
-        return datetime.strptime(text, "%m/%d/%Y").date()
+        return datetime.fromisoformat(text.replace("Z", "+00:00")).date()
     except ValueError:
         return None
 
 
 def _parse_dt(value) -> datetime | None:
-    """Parse an ISO-8601 timestamp (e.g. 2025-10-21T07:00:00Z). None if bad."""
+    """Parse a timestamp. Accepts ISO-8601 with or without the 'Z'/offset, and
+    the space-separated form Excel produces. Naive values are treated as UTC so
+    downstream time-zone-aware math never breaks."""
     if value is None:
         return None
     text = str(value).strip()
     if not text:
         return None
     try:
-        return datetime.fromisoformat(text.replace("Z", "+00:00"))
+        dt = datetime.fromisoformat(text.replace("Z", "+00:00"))
     except ValueError:
         return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt
 
 
 def _parse_float(value) -> float | None:
@@ -197,7 +215,7 @@ def clean_rows(df: pd.DataFrame) -> list[dict]:
     """Clean a raw shift DataFrame into a list of model-ready dicts."""
     missing = [c for c in EXPECTED_COLUMNS if c not in df.columns]
     if missing:
-        raise ValueError(f"CSV is missing required columns: {missing}")
+        raise ValueError(f"Dataset is missing required columns: {missing}")
 
     seen: set = set()
     cleaned = []
@@ -221,13 +239,48 @@ def summarize(cleaned: list[dict]) -> dict:
     }
 
 
+SUPPORTED_EXTENSIONS = (".csv", ".tsv", ".txt", ".xlsx", ".xlsm", ".xls", ".json")
+
+
+def _source_name(source) -> str:
+    """Best-effort filename for a path string or an uploaded file object."""
+    return str(getattr(source, "name", source) or "")
+
+
+def read_dataset(source) -> pd.DataFrame:
+    """Read a shift dataset from CSV, TSV, Excel or JSON into a DataFrame.
+
+    Format is chosen by file extension. All values are normalised to strings
+    (empty cells -> "") so the cleaning pipeline sees a single, uniform shape
+    regardless of source format.
+    """
+    name = _source_name(source).lower()
+
+    if name.endswith((".xlsx", ".xlsm", ".xls")):
+        df = pd.read_excel(source, dtype=str)
+    elif name.endswith(".json"):
+        raw = source.read() if hasattr(source, "read") else open(source, "rb").read()
+        records = json.loads(raw)
+        if isinstance(records, dict):  # allow {"records": [...]} or a column dict
+            records = records.get("records", records)
+        df = pd.DataFrame(records)
+    elif name.endswith((".tsv", ".txt")):
+        df = pd.read_csv(source, dtype=str, sep="\t", keep_default_na=False)
+    else:  # default: CSV
+        df = pd.read_csv(source, dtype=str, keep_default_na=False)
+
+    # Uniform shape: no NaN, everything a string.
+    return df.where(pd.notna(df), "").astype(str)
+
+
 def ingest_csv(path_or_filelike, replace: bool = True) -> dict:
-    """Read a shift CSV, clean it, persist to the DB, and return a summary.
+    """Read a shift dataset (CSV/TSV/Excel/JSON), clean it, persist it, and
+    return a summary.
 
     Shared by the ``load_dataset`` management command and the upload endpoint so
-    both go through exactly one cleaning path.
+    every format goes through exactly one cleaning path.
     """
-    df = pd.read_csv(path_or_filelike, dtype=str, keep_default_na=False)
+    df = read_dataset(path_or_filelike)
     cleaned = clean_rows(df)
 
     if replace:

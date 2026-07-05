@@ -20,6 +20,16 @@ export const api = {
   dataset: (f) => get('/dataset', f),
   qualityReport: () => get('/quality-report'),
   reasons: () => get('/reasons'),
+  grouping: () => get('/grouping'),
+  setGrouping: async (groups) => {
+    const res = await fetch(`${BASE}/grouping`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ groups }),
+    })
+    if (!res.ok) throw new Error(`Save grouping failed: ${res.status}`)
+    return res.json()
+  },
   efficiency: (f) => get('/analysis/efficiency', f),
   streaks: (f) => get('/analysis/streaks', f),
   shiftChart: (f) => get('/analysis/shift-chart', f),
@@ -30,6 +40,12 @@ export const api = {
     const res = await fetch(`${BASE}/dataset/upload`, { method: 'POST', body })
     const data = await res.json().catch(() => ({}))
     if (!res.ok) throw new Error(data.detail || `Upload failed: ${res.status}`)
+    return data
+  },
+  resetDataset: async () => {
+    const res = await fetch(`${BASE}/dataset/reset`, { method: 'POST' })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) throw new Error(data.detail || `Reset failed: ${res.status}`)
     return data
   },
 }

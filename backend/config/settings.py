@@ -12,7 +12,6 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 
 from pathlib import Path
 
-import dj_database_url
 from decouple import Csv, config
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -86,20 +85,12 @@ WSGI_APPLICATION = 'config.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
-#
-# Runs on SQLite out of the box (zero setup). To use PostgreSQL instead,
-# set DATABASE_URL in the environment, e.g.:
-#   DATABASE_URL=postgres://user:pass@localhost:5432/renata_shifts
-# Nothing else changes — the same models and migrations apply.
 
 DATABASES = {
-    'default': dj_database_url.parse(
-        config(
-            'DATABASE_URL',
-            default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}",
-        ),
-        conn_max_age=600,
-    )
+    'default': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
+    }
 }
 
 

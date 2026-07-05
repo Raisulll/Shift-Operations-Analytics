@@ -8,6 +8,7 @@ import {
   ReferenceLine,
   ResponsiveContainer,
 } from 'recharts'
+import { fmtShort } from '../dates'
 
 export default function EfficiencyPanel({ data }) {
   if (!data) return null
@@ -31,16 +32,25 @@ export default function EfficiencyPanel({ data }) {
             <strong>{overall.total_hours} h</strong> total
           </div>
           <div className="muted">
-            Productive = hours not in {data.non_productive_reasons.join(' / ')}
+            Productive = hours where reason is not{' '}
+            {data.non_productive_reasons.join(' or ')}
           </div>
         </div>
       </div>
       <ResponsiveContainer width="100%" height={200}>
         <LineChart data={by_date} margin={{ top: 6, right: 16, bottom: 4, left: -10 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#eef0f3" />
-          <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#777' }} interval="preserveStartEnd" />
+          <XAxis
+            dataKey="date"
+            tickFormatter={fmtShort}
+            tick={{ fontSize: 10, fill: '#777' }}
+            interval="preserveStartEnd"
+          />
           <YAxis domain={[0, 100]} tick={{ fontSize: 10, fill: '#777' }} unit="%" />
-          <Tooltip formatter={(v) => (v == null ? '—' : `${v}%`)} />
+          <Tooltip
+            labelFormatter={fmtShort}
+            formatter={(v) => (v == null ? '—' : `${v}%`)}
+          />
           <ReferenceLine y={score} stroke="#bbb" strokeDasharray="4 4" />
           <Line
             type="monotone"

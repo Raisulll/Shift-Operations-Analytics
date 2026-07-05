@@ -1,7 +1,7 @@
 import { useState } from 'react'
 
 export default function QualityReport({ data }) {
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(true)
   if (!data) return null
   const { summary, rows } = data
 

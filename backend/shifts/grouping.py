@@ -34,10 +34,12 @@ def non_productive_reasons() -> set[str]:
 
 # --- Optional grouping ------------------------------------------------------
 # Map of {group_label: [reason, reason, ...]}. Default is identity (no grouping).
-# Configure via REASON_GROUPS as JSON, e.g.:
-#   REASON_GROUPS='{"Equipment Failure": ["Breakdown", "Machine Jam", "Unknown Failure"]}'
-def group_map() -> dict[str, str]:
-    """Return a flat {reason: group_label} lookup built from config."""
+# Resolution order for the active grouping:
+#   1. User-defined groups saved in the DB (ReasonGroup) via the UI.
+#   2. The REASON_GROUPS env var (JSON), e.g.:
+#        REASON_GROUPS='{"Equipment Failure": ["Breakdown", "Machine Jam"]}'
+#   3. Identity (each reason is its own group).
+def _env_group_map() -> dict[str, str]:
     raw = config("REASON_GROUPS", default="").strip()
     if not raw:
         return {}
@@ -47,6 +49,36 @@ def group_map() -> dict[str, str]:
         for member in members:
             lookup[member] = label
     return lookup
+
+
+def group_map() -> dict[str, str]:
+    """Return a flat {reason: group_label} lookup for the active grouping."""
+    # Import here to avoid a circular import at module load time.
+    from .models import ReasonGroup
+
+    db_rows = list(ReasonGroup.objects.all().values_list("reason", "group_label"))
+    if db_rows:
+        return {reason: label for reason, label in db_rows}
+    return _env_group_map()
+
+
+def set_group_map(groups: dict[str, list[str]]) -> dict[str, str]:
+    """Replace the saved grouping with ``{label: [reasons]}`` and return the
+    resulting flat {reason: label} lookup. Empty input clears all grouping."""
+    from .models import ReasonGroup
+
+    ReasonGroup.objects.all().delete()
+    rows = []
+    for label, members in (groups or {}).items():
+        label = str(label).strip()
+        if not label:
+            continue
+        for member in members:
+            member = str(member).strip()
+            if member and member != label:  # identity mapping is a no-op
+                rows.append(ReasonGroup(reason=member, group_label=label))
+    ReasonGroup.objects.bulk_create(rows, ignore_conflicts=True)
+    return group_map()
 
 
 def group_of(reason: str, lookup: dict[str, str] | None = None) -> str:

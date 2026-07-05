@@ -1,5 +1,7 @@
 // Filter controls that drive every query. All options are data-derived.
-export default function FilterBar({ reasons, filters, onChange, onReset }) {
+export default function FilterBar({ reasons, filters, dateRange, onChange, onReset }) {
+  const min = dateRange?.min || undefined
+  const max = dateRange?.max || undefined
   const selected = new Set(filters.reasons ? filters.reasons.split(',') : [])
 
   const toggleReason = (r) => {
@@ -15,6 +17,8 @@ export default function FilterBar({ reasons, filters, onChange, onReset }) {
           From
           <input
             type="date"
+            min={min}
+            max={filters.end_date || max}
             value={filters.start_date || ''}
             onChange={(e) => onChange({ ...filters, start_date: e.target.value })}
           />
@@ -23,6 +27,8 @@ export default function FilterBar({ reasons, filters, onChange, onReset }) {
           To
           <input
             type="date"
+            min={filters.start_date || min}
+            max={max}
             value={filters.end_date || ''}
             onChange={(e) => onChange({ ...filters, end_date: e.target.value })}
           />

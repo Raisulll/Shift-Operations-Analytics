@@ -7,6 +7,7 @@ import {
   ResponsiveContainer,
   usePlotArea,
 } from 'recharts'
+import { fmtShort, fmtLong } from '../dates'
 
 // The required shift-analysis chart.
 //   X axis = date, Y axis = time of day from 12 AM to the *next* 12 PM (36 h),
@@ -28,7 +29,7 @@ function timeLabel(min) {
 // Draws the coloured shift bars using the chart's live plot rectangle.
 // usePlotArea() (Recharts 3.1+) returns {x, y, width, height} in pixels and
 // keeps the bars aligned with the axes on resize.
-function ShiftBars({ dates, segments, colorMap }) {
+function ShiftBars({ dates, segments, colorMap, keyOf }) {
   const area = usePlotArea()
   if (!area || !dates.length) return null
   const { x: left, y: top, width, height } = area
@@ -65,13 +66,13 @@ function ShiftBars({ dates, segments, colorMap }) {
             width={barW}
             height={h}
             rx={2}
-            fill={colorMap[s.reason] || '#888'}
+            fill={colorMap[keyOf(s)] || '#888'}
             fillOpacity={0.92}
             stroke="#fff"
             strokeWidth={0.5}
           >
             <title>
-              {`${s.reason}\n${date}\n${timeLabel(s.start_min)} -> ${timeLabel(
+              {`${keyOf(s)}\n${fmtLong(date)}\n${timeLabel(s.start_min)} -> ${timeLabel(
                 s.end_min,
               )}\n${s.hours} h${s.crosses_midnight ? '  (overnight)' : ''}`}
             </title>
@@ -82,9 +83,17 @@ function ShiftBars({ dates, segments, colorMap }) {
   return <g>{rects}</g>
 }
 
-export default function ShiftChart({ data, colorMap }) {
+export default function ShiftChart({ data, colorMap, keyOf = (s) => s.reason }) {
   const segments = data?.segments || []
   const dates = [...new Set(segments.map((s) => s.date))].sort()
+  const dateIndex = Object.fromEntries(dates.map((d, i) => [d, i]))
+
+  // Invisible points give Recharts real data so it renders the axis ticks;
+  // the visible bars are drawn separately by <ShiftBars> via usePlotArea().
+  const points = segments.map((s) => ({
+    x: (dateIndex[s.date] ?? 0) + 0.5,
+    y: s.start_min,
+  }))
 
   const yTicks = []
   for (let m = 0; m <= AXIS_MAX; m += 180) yTicks.push(m)
@@ -102,7 +111,7 @@ export default function ShiftChart({ data, colorMap }) {
           dataKey="x"
           domain={[0, dates.length]}
           ticks={dates.map((_, i) => i + 0.5)}
-          tickFormatter={(v) => dates[Math.floor(v)] || ''}
+          tickFormatter={(v) => fmtShort(dates[Math.floor(v)])}
           angle={-45}
           textAnchor="end"
           interval={0}
@@ -124,9 +133,10 @@ export default function ShiftChart({ data, colorMap }) {
             style: { textAnchor: 'middle', fill: '#666' },
           }}
         />
-        {/* Empty series keeps ScatterChart happy; bars are drawn by ShiftBars. */}
-        <Scatter data={[]} />
-        <ShiftBars dates={dates} segments={segments} colorMap={colorMap} />
+        {/* Invisible points establish the axis scales/ticks; visible bars are
+            drawn by ShiftBars. */}
+        <Scatter data={points} fill="#000" fillOpacity={0} isAnimationActive={false} />
+        <ShiftBars dates={dates} segments={segments} colorMap={colorMap} keyOf={keyOf} />
       </ScatterChart>
     </ResponsiveContainer>
   )

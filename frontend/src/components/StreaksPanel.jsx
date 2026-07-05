@@ -1,3 +1,5 @@
+import { fmtShort, fmtLong } from '../dates'
+
 export default function StreaksPanel({ data, preset, onPresetChange }) {
   const streaks = data?.streaks || []
   const presets = data?.presets || {}
@@ -29,7 +31,7 @@ export default function StreaksPanel({ data, preset, onPresetChange }) {
           {streaks.map((s, i) => (
             <li key={i}>
               <div className="streak-span">
-                {s.start} → {s.end}
+                {fmtShort(s.start)} → {fmtLong(s.end)}
                 <span className="badge">{s.length_days} days</span>
               </div>
               <div className="streak-meta muted">

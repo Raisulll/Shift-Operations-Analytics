@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { api } from './api'
 import { buildColorMap } from './colors'
 import FilterBar from './components/FilterBar'
@@ -10,7 +10,11 @@ import StreaksPanel from './components/StreaksPanel'
 import InsightsPanel from './components/InsightsPanel'
 import QualityReport from './components/QualityReport'
 import DowntimeByReason from './components/DowntimeByReason'
+import DowntimeHeatmap from './components/DowntimeHeatmap'
+import DayOfWeekChart from './components/DayOfWeekChart'
+import ParetoChart from './components/ParetoChart'
 import UploadCard from './components/UploadCard'
+import GroupingEditor from './components/GroupingEditor'
 import './App.css'
 
 const EMPTY_FILTERS = { start_date: '', end_date: '', reasons: '', valid_only: 'true' }
@@ -18,9 +22,16 @@ const EMPTY_FILTERS = { start_date: '', end_date: '', reasons: '', valid_only: '
 export default function App() {
   const [filters, setFilters] = useState(EMPTY_FILTERS)
   const [preset, setPreset] = useState('breakdown')
-  const [version, setVersion] = useState(0) // bumped on upload to refetch everything
+  const [version, setVersion] = useState(0) // bumped on upload / grouping change
+  const [dimension, setDimension] = useState('reason') // 'reason' | 'group'
+  const [editingGroups, setEditingGroups] = useState(false)
 
   const [reasons, setReasons] = useState([])
+  const [dateRange, setDateRange] = useState({ min: null, max: null })
+  const datesInitialized = useRef(false)
+  // Which dataset is active. Driven by the backend's active_source, so it stays
+  // accurate across a browser refresh (uploads persist until you switch back).
+  const [source, setSource] = useState({ type: 'default', name: 'Sample dataset' })
   const [chart, setChart] = useState(null)
   const [efficiency, setEfficiency] = useState(null)
   const [streaks, setStreaks] = useState(null)
@@ -29,10 +40,33 @@ export default function App() {
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(true)
 
-  // Colours are derived once from all reasons so they stay stable under filtering.
-  const colorMap = useMemo(
-    () => buildColorMap(reasons.map((r) => r.reason).sort()),
+  // Whether any real grouping is active (a reason whose group differs from itself).
+  const hasGroups = useMemo(
+    () => reasons.some((r) => r.group && r.group !== r.reason),
     [reasons],
+  )
+
+  // The categorical dimension the charts colour/aggregate by.
+  const keyOf = useCallback(
+    (seg) => (dimension === 'group' ? seg.group || seg.reason : seg.reason),
+    [dimension],
+  )
+
+  // Distinct keys for the active dimension → stable colour assignment.
+  const dimensionKeys = useMemo(() => {
+    const keys =
+      dimension === 'group'
+        ? reasons.map((r) => r.group || r.reason)
+        : reasons.map((r) => r.reason)
+    return [...new Set(keys)].sort()
+  }, [reasons, dimension])
+
+  const colorMap = useMemo(() => buildColorMap(dimensionKeys), [dimensionKeys])
+
+  const segments = chart?.segments || []
+  const chartKeys = useMemo(
+    () => [...new Set(segments.map(keyOf))].sort(),
+    [segments, keyOf],
   )
 
   const refetch = useCallback(async () => {
@@ -48,6 +82,15 @@ export default function App() {
         api.qualityReport(),
       ])
       setReasons(rs.reasons)
+      setDateRange(rs.date_range || { min: null, max: null })
+      if (rs.active_source) {
+        setSource({
+          type: rs.active_source.is_custom ? 'custom' : 'default',
+          name: rs.active_source.name,
+          valid: rs.active_source.valid,
+          total: rs.active_source.total,
+        })
+      }
       setChart(ch)
       setEfficiency(ef)
       setStreaks(st)
@@ -64,7 +107,48 @@ export default function App() {
     refetch()
   }, [refetch])
 
-  const chartReasons = chart?.reasons || []
+  // Once the data's date span is known, pre-fill From/To to that range so the
+  // date pickers open on the right month instead of "today". Runs once per
+  // dataset (reset when a new CSV is uploaded).
+  useEffect(() => {
+    if (
+      !datesInitialized.current &&
+      dateRange.min &&
+      dateRange.max &&
+      !filters.start_date &&
+      !filters.end_date
+    ) {
+      datesInitialized.current = true
+      setFilters((f) => ({ ...f, start_date: dateRange.min, end_date: dateRange.max }))
+    }
+  }, [dateRange, filters.start_date, filters.end_date])
+
+  const resetFilters = () =>
+    setFilters({
+      start_date: dateRange.min || '',
+      end_date: dateRange.max || '',
+      reasons: '',
+      valid_only: 'true',
+    })
+
+  // Switch the active dataset: clear the date range so the picker pre-fill waits
+  // for the NEW dataset's span, then refetch (which also updates the source label
+  // from the backend's active_source).
+  const switchDataset = () => {
+    datesInitialized.current = false
+    setDateRange({ min: null, max: null })
+    setFilters(EMPTY_FILTERS)
+    setVersion((v) => v + 1)
+  }
+
+  // A new upload becomes the active dataset (persists until you switch back).
+  const handleUploaded = () => switchDataset()
+
+  // Return to the bundled sample dataset without needing a browser refresh.
+  const returnToDefault = async () => {
+    await api.resetDataset()
+    switchDataset()
+  }
 
   return (
     <div className="app">
@@ -89,7 +173,23 @@ export default function App() {
             </p>
           </div>
         </div>
-        <UploadCard onUploaded={() => setVersion((v) => v + 1)} />
+        <div className="source-area">
+          <div className="source-tag">
+            <span className={`dot ${source.type}`} />
+            <span>
+              <b>{source.type === 'custom' ? source.name : 'Sample dataset'}</b>
+              {source.valid != null && (
+                <span className="muted"> · {source.valid}/{source.total} valid</span>
+              )}
+            </span>
+            {source.type === 'custom' && (
+              <button className="link-btn" onClick={returnToDefault}>
+                Use sample data
+              </button>
+            )}
+          </div>
+          <UploadCard onUploaded={handleUploaded} />
+        </div>
       </header>
 
       {error && <div className="banner bad">API error: {error}. Is the backend running?</div>}
@@ -99,8 +199,9 @@ export default function App() {
       <FilterBar
         reasons={reasons}
         filters={filters}
+        dateRange={dateRange}
         onChange={setFilters}
-        onReset={() => setFilters(EMPTY_FILTERS)}
+        onReset={resetFilters}
       />
 
       {loading && !chart ? (
@@ -112,12 +213,31 @@ export default function App() {
               <div>
                 <h2>Shift Analysis</h2>
                 <p className="panel-sub">
-                  Each bar is a shift, placed by time of day and colored by reason.
+                  Each bar is a shift, placed by time of day and colored by {dimension}.
                 </p>
               </div>
+              <div className="head-controls">
+                <div className="seg">
+                  <button
+                    className={dimension === 'reason' ? 'seg-on' : ''}
+                    onClick={() => setDimension('reason')}
+                  >
+                    Reason
+                  </button>
+                  <button
+                    className={dimension === 'group' ? 'seg-on' : ''}
+                    onClick={() => setDimension('group')}
+                  >
+                    Group{hasGroups ? '' : ' •'}
+                  </button>
+                </div>
+                <button className="ghost" onClick={() => setEditingGroups(true)}>
+                  Edit groups
+                </button>
+              </div>
             </div>
-            <ShiftChart data={chart} colorMap={colorMap} />
-            <Legend reasons={chartReasons} colorMap={colorMap} />
+            <ShiftChart data={chart} colorMap={colorMap} keyOf={keyOf} />
+            <Legend reasons={chartKeys} colorMap={colorMap} />
           </div>
 
           <div className="grid-2">
@@ -126,9 +246,21 @@ export default function App() {
           </div>
 
           <div className="grid-2">
-            <DowntimeByReason segments={chart?.segments} colorMap={colorMap} />
+            <DowntimeByReason
+              segments={segments}
+              colorMap={colorMap}
+              keyOf={keyOf}
+              dimension={dimension}
+            />
+            <ParetoChart segments={segments} colorMap={colorMap} keyOf={keyOf} />
+          </div>
+
+          <div className="grid-2">
+            <DayOfWeekChart segments={segments} />
             <InsightsPanel insights={insights} />
           </div>
+
+          <DowntimeHeatmap segments={segments} />
 
           <QualityReport data={quality} />
         </>
@@ -137,6 +269,13 @@ export default function App() {
       <footer className="foot muted">
         Renata assignment · React + Django + DRF · data-derived, no hardcoded categories.
       </footer>
+
+      {editingGroups && (
+        <GroupingEditor
+          onClose={() => setEditingGroups(false)}
+          onSaved={() => setVersion((v) => v + 1)}
+        />
+      )}
     </div>
   )
 }

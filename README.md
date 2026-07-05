@@ -8,22 +8,30 @@ actionable insights for a plant manager.
 Built with **React** (frontend) and **Django + Django REST Framework** (backend),
 with **pandas** for the data pipeline. All analysis logic lives on the backend
 and is exposed as a REST API the frontend consumes.
+
 ---
 
 ## Table of contents
-- [Features](#features)
-- [Tech stack](#tech-stack)
-- [Project structure](#project-structure)
-- [Getting started](#getting-started)
-- [Configuration](#configuration)
-- [API reference](#api-reference)
-- [Data cleaning: detected inconsistencies & handling](#data-cleaning-detected-inconsistencies--handling)
-- [Breakdown streak analysis](#breakdown-streak-analysis)
-- [Operational Efficiency Score](#operational-efficiency-score)
-- [Operational insights](#operational-insights)
-- [Extensibility: no hardcoded categories](#extensibility-no-hardcoded-categories)
-- [Testing](#testing)
-- [Design decisions & assumptions](#design-decisions--assumptions)
+- [Shift Operations Analytics](#shift-operations-analytics)
+  - [Table of contents](#table-of-contents)
+  - [Features](#features)
+    - [Enhancements (beyond the brief)](#enhancements-beyond-the-brief)
+  - [Tech stack](#tech-stack)
+  - [Project structure](#project-structure)
+  - [Getting started](#getting-started)
+    - [Prerequisites](#prerequisites)
+    - [1) Backend (Django API)](#1-backend-django-api)
+    - [2) Frontend (React)](#2-frontend-react)
+    - [3) Open the app](#3-open-the-app)
+  - [Configuration](#configuration)
+  - [API reference](#api-reference)
+  - [Data cleaning: detected inconsistencies \& handling](#data-cleaning-detected-inconsistencies--handling)
+  - [Breakdown streak analysis](#breakdown-streak-analysis)
+  - [Operational Efficiency Score](#operational-efficiency-score)
+  - [Operational insights](#operational-insights)
+  - [Extensibility: no hardcoded categories](#extensibility-no-hardcoded-categories)
+  - [Testing](#testing)
+  - [Design decisions \& assumptions](#design-decisions--assumptions)
 
 ---
 
@@ -38,17 +46,29 @@ and is exposed as a REST API the frontend consumes.
 - **Operational Efficiency Score** — overall and as a daily trend.
 - **Breakdown streak detection** — configurable, with a `breakdown` vs
   `failure_family` toggle.
-- **Extra visualization** — total hours by reason.
 - **At least three actionable insights**, computed from the data.
-- **CSV upload** — analyze any shift CSV, not just the bundled one.
+- **Dataset upload** — analyze any shift dataset, not just the bundled one.
+  Accepts **CSV, Excel (`.xlsx`/`.xls`) and JSON**. An uploaded dataset stays
+  active until you click "Use sample data" to return to the
+  bundled default.
+
+### Enhancements (beyond the brief)
+- **Interactive reason grouping** — create/edit reason groups in the browser and
+  a *Reason ↔ Group* toggle re-aggregates every chart, streak and score live.
+  This *demonstrates* the "categories can be grouped" requirement rather than
+  just claiming it.
+- **Extra visualizations** — hours by reason/group, a **Pareto chart** (vital-few
+  downtime drivers), an **hours-by-day-of-week** breakdown, and an **activity
+  heatmap** (shifts active by hour of day across dates).
+- **KPI summary row** and a polished dashboard UI.
 
 ## Tech stack
 | Layer | Choice |
 |---|---|
-| Frontend | React 19 + Vite, [Recharts](https://recharts.org/) |
+| Frontend | React 19 + Vite |
 | Backend | Django 6 + Django REST Framework |
 | Data | pandas |
-| Database | SQLite by default; **PostgreSQL-ready** via `DATABASE_URL` |
+| Database | SQLite |
 
 ## Project structure
 ```
@@ -63,7 +83,7 @@ and is exposed as a REST API the frontend consumes.
 │   │   ├── grouping.py         # data-derived reason policy (no hardcoding)
 │   │   ├── views.py / urls.py  # REST API
 │   │   ├── serializers.py
-│   │   ├── tests.py            # 15 unit tests
+│   │   ├── tests.py            # 18 unit tests
 │   │   └── management/commands/load_dataset.py
 │   ├── requirements.txt
 │   └── .env.example
@@ -134,7 +154,6 @@ Everything runs with **no configuration**. To override defaults, copy
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `DATABASE_URL` | SQLite | Set to a `postgres://…` URL to use PostgreSQL — no code changes |
 | `NON_PRODUCTIVE_REASONS` | `Breakdown,Unknown Failure` | Reasons excluded from productive hours |
 | `REASON_GROUPS` | *(none)* | JSON map to group reasons into buckets |
 | `STREAK_PRESETS` | breakdown / failure_family | JSON target sets for streak detection |
@@ -143,15 +162,6 @@ Everything runs with **no configuration**. To override defaults, copy
 
 Frontend: `VITE_API_BASE` (default `/api`) and `VITE_API_PROXY`
 (default `http://127.0.0.1:8000`) — see `frontend/.env.example`.
-
-### Using PostgreSQL
-The app ships on SQLite for zero-friction setup. To run on Postgres instead:
-```bash
-# backend/.env
-DATABASE_URL=postgres://user:password@localhost:5432/renata_shifts
-```
-Then `python manage.py migrate && python manage.py load_dataset --replace`. The
-same models and migrations apply.
 
 ---
 
@@ -163,11 +173,12 @@ Base path: `/api`
 | GET | `/dataset` | Cleaned records. Filters: `start_date`, `end_date`, `reasons` (csv), `valid_only` |
 | GET | `/quality-report` | Summary + every flagged row with issues and actions |
 | GET | `/reasons` | Distinct reasons (data-derived) + counts + grouping |
+| GET / PUT | `/grouping` | Get or set the active reason grouping ({label: [reasons]}) |
 | GET | `/analysis/efficiency` | Efficiency score, overall and per day |
 | GET | `/analysis/streaks` | Breakdown streaks. Params: `preset`, `reasons`, `min_days` |
 | GET | `/analysis/shift-chart` | Per-record segments for the shift chart |
 | GET | `/analysis/insights` | Actionable insights |
-| POST | `/dataset/upload` | Upload a CSV (form field `file`); replaces the active dataset |
+| POST | `/dataset/upload` | Upload a CSV/Excel/JSON file (form field `file`); replaces the active dataset |
 
 All GET analysis endpoints accept the same filter params as `/dataset`.
 
@@ -246,7 +257,7 @@ dataset the overall score is **≈ 86.8%**.
 
 > **Note on the formula.** As specified, only `Breakdown` and `Unknown Failure`
 > are non-productive, so `Power Failure`, `Material Shortage`, `Idle`, etc. count
-> as *productive* even though they are operationally downtime. We follow the
+> as *productive* even though they are operationally downtime. I follow the
 > formula literally, but the non-productive set is configurable via
 > `NON_PRODUCTIVE_REASONS` if a stricter definition is wanted. This is also why
 > streak detection uses its own (broader) target set rather than reusing this one.
@@ -278,17 +289,16 @@ categories appear or categories are grouped together." Accordingly:
   bucket (e.g. an "Equipment Failure" group) without touching analysis code.
 
 ## Testing
-15 unit tests cover the cleaning rules (each issue code) and the analysis layer
+18 unit tests cover the cleaning rules (each issue code), the analysis layer
 (efficiency exclusion, consecutive-day streak logic, configurable targets,
-overnight-axis handling, insight generation):
+overnight-axis handling, insight generation), and reason grouping:
 ```bash
 cd backend
 python manage.py test shifts
 ```
 
 ## Design decisions & assumptions
-- **SQLite by default, Postgres-ready.** Zero-setup local runs; production/Postgres
-  is one env var away.
+- **SQLite.** Zero-setup local database; no external services to run.
 - **Analysis on the backend.** All cleaning and analytics run server-side (Python/
   pandas) and are exposed via REST; the frontend only renders.
 - **Timestamps are UTC** (`...Z`) as provided; `DAY_DATE` is treated as the

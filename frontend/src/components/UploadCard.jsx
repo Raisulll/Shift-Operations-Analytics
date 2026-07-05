@@ -2,21 +2,22 @@ import { useRef, useState } from 'react'
 import { api } from '../api'
 
 // Upload any shift CSV; on success the whole dashboard refreshes against it.
+// The "currently loaded" indicator lives in the header (App), so here we only
+// surface upload errors.
 export default function UploadCard({ onUploaded }) {
   const inputRef = useRef(null)
-  const [status, setStatus] = useState(null)
+  const [error, setError] = useState(null)
   const [busy, setBusy] = useState(false)
 
   const handle = async (file) => {
     if (!file) return
     setBusy(true)
-    setStatus(null)
+    setError(null)
     try {
       const res = await api.upload(file)
-      setStatus({ ok: true, msg: `Loaded: ${res.summary.valid}/${res.summary.total} valid rows.` })
-      onUploaded()
+      onUploaded(res.summary, file.name)
     } catch (e) {
-      setStatus({ ok: false, msg: e.message })
+      setError(e.message)
     } finally {
       setBusy(false)
       if (inputRef.current) inputRef.current.value = ''
@@ -28,14 +29,12 @@ export default function UploadCard({ onUploaded }) {
       <input
         ref={inputRef}
         type="file"
-        accept=".csv"
+        accept=".csv,.tsv,.txt,.xlsx,.xlsm,.xls,.json"
         onChange={(e) => handle(e.target.files[0])}
         disabled={busy}
       />
-      <span className="muted small">Upload a shift CSV to analyze your own data.</span>
-      {status && (
-        <span className={status.ok ? 'ok small' : 'bad small'}>{status.msg}</span>
-      )}
+      <span className="muted small">Upload CSV, Excel or JSON to analyze your own data.</span>
+      {error && <span className="bad small">{error}</span>}
     </div>
   )
 }

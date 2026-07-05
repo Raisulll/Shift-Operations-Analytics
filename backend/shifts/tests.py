@@ -3,7 +3,7 @@ import io
 import pandas as pd
 from django.test import TestCase
 
-from shifts import analysis, cleaning
+from shifts import analysis, cleaning, grouping
 from shifts.cleaning import clean_rows, summarize
 from shifts.models import ShiftRecord
 
@@ -158,3 +158,24 @@ class AnalysisTests(TestCase):
         for ins in result:
             self.assertIn("title", ins)
             self.assertIn("detail", ins)
+
+
+class GroupingTests(TestCase):
+    def test_set_and_read_grouping(self):
+        grouping.set_group_map(
+            {"Equipment Failure": ["Breakdown", "Machine Jam", "Unknown Failure"]}
+        )
+        lookup = grouping.group_map()
+        self.assertEqual(lookup["Breakdown"], "Equipment Failure")
+        self.assertEqual(grouping.group_of("Machine Jam", lookup), "Equipment Failure")
+        # Ungrouped reason maps to itself.
+        self.assertEqual(grouping.group_of("Cleaning", lookup), "Cleaning")
+
+    def test_identity_mapping_is_ignored(self):
+        grouping.set_group_map({"Breakdown": ["Breakdown"]})  # self-map = no-op
+        self.assertEqual(grouping.group_map(), {})
+
+    def test_clearing_grouping(self):
+        grouping.set_group_map({"X": ["Breakdown"]})
+        grouping.set_group_map({})
+        self.assertEqual(grouping.group_map(), {})

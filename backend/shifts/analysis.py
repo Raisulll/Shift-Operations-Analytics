@@ -18,6 +18,20 @@ from .grouping import group_of, non_productive_reasons, streak_presets
 # overnight shifts render correctly. 36 h = 2160 minutes.
 CHART_AXIS_MAX_MIN = 36 * 60
 
+_MONTHS = [
+    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+]
+
+
+def _fmt_date(iso: str) -> str:
+    """'2025-10-07' -> 'Oct 7' for readable insight text."""
+    try:
+        y, m, d = (int(x) for x in iso.split("-"))
+        return f"{_MONTHS[m - 1]} {d}"
+    except (ValueError, IndexError):
+        return iso
+
 
 def _minutes_from_daystart(dt: datetime, day: date) -> float:
     """Minutes between a timestamp and midnight (UTC) of the record's day_date.
@@ -236,9 +250,10 @@ def insights(records, quality_summary: dict | None = None) -> list[dict]:
             {
                 "title": "Recurring multi-day failure streak",
                 "detail": (
-                    f"A {s['length_days']}-day failure streak ran {s['start']} to "
-                    f"{s['end']} ({s['downtime_hours']} h across {s['record_count']} "
-                    f"events). Treat this interval as a single incident for RCA."
+                    f"A {s['length_days']}-day failure streak ran {_fmt_date(s['start'])} "
+                    f"to {_fmt_date(s['end'])} ({s['downtime_hours']} h across "
+                    f"{s['record_count']} events). Treat this interval as a single "
+                    f"incident for RCA."
                 ),
                 "metric": s,
             }
@@ -253,8 +268,8 @@ def insights(records, quality_summary: dict | None = None) -> list[dict]:
             {
                 "title": "Lowest-efficiency day",
                 "detail": (
-                    f"{worst['date']} had the lowest operational efficiency at "
-                    f"{worst['efficiency']}% ({worst['productive_hours']} of "
+                    f"{_fmt_date(worst['date'])} had the lowest operational efficiency "
+                    f"at {worst['efficiency']}% ({worst['productive_hours']} of "
                     f"{worst['total_hours']} h productive). Review that day's log."
                 ),
                 "metric": worst,

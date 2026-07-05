@@ -1,6 +1,6 @@
 from collections import Counter
 
-from django.db.models import Count
+from django.db.models import Count, Max, Min
 from rest_framework import status
 from rest_framework.decorators import api_view, parser_classes
 from rest_framework.parsers import FormParser, MultiPartParser
@@ -8,9 +8,26 @@ from rest_framework.response import Response
 
 from . import analysis
 from .cleaning import ingest_csv
-from .grouping import group_map, group_of, non_productive_reasons, resolve_streak_target, streak_presets
-from .models import ShiftRecord
+from .grouping import (
+    group_map,
+    group_of,
+    non_productive_reasons,
+    resolve_streak_target,
+    set_group_map,
+    streak_presets,
+)
+from .models import DatasetMeta, ShiftRecord
 from .serializers import ShiftRecordSerializer
+
+
+def _groups_by_label(lookup):
+    """Invert a {reason: label} map into {label: [reasons]}."""
+    out = {}
+    for reason, label in lookup.items():
+        out.setdefault(label, []).append(reason)
+    for members in out.values():
+        members.sort()
+    return out
 
 
 def apply_filters(qs, params):
@@ -99,6 +116,12 @@ def reasons(request):
     )
     lookup = group_map()
     non_prod = non_productive_reasons()
+    span = ShiftRecord.objects.filter(is_valid=True).aggregate(
+        min=Min("day_date"), max=Max("day_date")
+    )
+    meta = DatasetMeta.active()
+    total = ShiftRecord.objects.count()
+    valid = ShiftRecord.objects.filter(is_valid=True).count()
     reason_list = [
         {
             "reason": row["reason"],
@@ -113,6 +136,16 @@ def reasons(request):
             "reasons": reason_list,
             "groups": lookup,
             "non_productive_reasons": sorted(non_prod),
+            "date_range": {
+                "min": span["min"].isoformat() if span["min"] else None,
+                "max": span["max"].isoformat() if span["max"] else None,
+            },
+            "active_source": {
+                "name": meta.source_name if meta else "Sample dataset",
+                "is_custom": meta.is_custom if meta else False,
+                "valid": valid,
+                "total": total,
+            },
         }
     )
 
@@ -166,6 +199,33 @@ def insights(request):
     return Response({"insights": analysis.insights(qs, quality_summary)})
 
 
+@api_view(["GET", "PUT"])
+def grouping(request):
+    """Get or set the active reason grouping.
+
+    GET  -> {groups: {label: [reasons]}, available_reasons: [...]}
+    PUT  -> body {groups: {label: [reasons]}}; replaces the saved grouping.
+    """
+    if request.method == "PUT":
+        groups = (request.data or {}).get("groups", {})
+        if not isinstance(groups, dict):
+            return Response(
+                {"detail": "Body must be {'groups': {label: [reasons]}}."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        set_group_map(groups)
+
+    available = list(
+        ShiftRecord.objects.filter(is_valid=True)
+        .values_list("reason", flat=True)
+        .distinct()
+        .order_by("reason")
+    )
+    return Response(
+        {"groups": _groups_by_label(group_map()), "available_reasons": available}
+    )
+
+
 @api_view(["POST"])
 @parser_classes([MultiPartParser, FormParser])
 def upload(request):
@@ -185,4 +245,21 @@ def upload(request):
             {"detail": f"Could not process file: {exc}"},
             status=status.HTTP_400_BAD_REQUEST,
         )
+    DatasetMeta.set_active(getattr(file, "name", "Uploaded CSV"), is_custom=True)
     return Response({"detail": "Dataset replaced.", "summary": summary})
+
+
+@api_view(["POST"])
+def reset_dataset(request):
+    """Reload the bundled default dataset, discarding any uploaded data."""
+    from django.conf import settings
+
+    try:
+        summary = ingest_csv(settings.DEFAULT_DATASET_PATH, replace=True)
+    except Exception as exc:
+        return Response(
+            {"detail": f"Could not load the default dataset: {exc}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+    DatasetMeta.set_active("Sample dataset", is_custom=False)
+    return Response({"detail": "Default dataset loaded.", "summary": summary})
