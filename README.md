@@ -23,6 +23,7 @@ and is exposed as a REST API the frontend consumes.
     - [1) Backend (Django API)](#1-backend-django-api)
     - [2) Frontend (React)](#2-frontend-react)
     - [3) Open the app](#3-open-the-app)
+    - [Sample datasets](#sample-datasets)
   - [Configuration](#configuration)
   - [API reference](#api-reference)
   - [Data cleaning: detected inconsistencies \& handling](#data-cleaning-detected-inconsistencies--handling)
@@ -50,7 +51,8 @@ and is exposed as a REST API the frontend consumes.
 - **Dataset upload** — analyze any shift dataset, not just the bundled one.
   Accepts **CSV, Excel (`.xlsx`/`.xls`) and JSON**. An uploaded dataset stays
   active until you click "Use sample data" to return to the
-  bundled default.
+  bundled default. Ready-made files to try it with live in
+  [`sample_data/`](sample_data/) (see [Sample datasets](#sample-datasets)).
 
 ### Enhancements (beyond the brief)
 - **Interactive reason grouping** — create/edit reason groups in the browser and
@@ -87,13 +89,18 @@ and is exposed as a REST API the frontend consumes.
 │   │   └── management/commands/load_dataset.py
 │   ├── requirements.txt
 │   └── .env.example
-└── frontend/
-    ├── src/
-    │   ├── api.js              # API client
-    │   ├── colors.js          # deterministic reason palette
-    │   ├── components/         # chart, filters, panels, upload
-    │   └── App.jsx
-    └── .env.example
+├── frontend/
+│   ├── src/
+│   │   ├── api.js              # API client
+│   │   ├── colors.js          # deterministic reason palette
+│   │   ├── components/         # chart, filters, panels, upload
+│   │   └── App.jsx
+│   └── .env.example
+└── sample_data/                # extra datasets for the Upload feature (CSV/XLSX/JSON)
+    ├── sample_clean.*          # happy path — 12 records, 0 issues
+    ├── sample_messy.*          # every inconsistency type the pipeline handles
+    ├── sample_new_categories.* # brand-new reasons (extensibility demo)
+    └── README.md               # what each file demonstrates
 ```
 
 ---
@@ -145,6 +152,23 @@ server, so there is no CORS setup to worry about.
 
 > If you skip `load_dataset`, the dashboard loads but is empty until you either
 > run that command or upload a CSV from the header.
+
+### Sample datasets
+The [`sample_data/`](sample_data/) folder holds extra datasets for exercising the
+**Upload** feature (top-right of the dashboard). Each dataset ships in **all three
+supported formats — CSV, `.xlsx` and JSON — and produces identical results**,
+demonstrating that the loader is format-agnostic:
+
+| Dataset (`.csv` / `.xlsx` / `.json`) | Demonstrates | Result when uploaded |
+|---|---|---|
+| `sample_clean` | The happy path — tidy, consistent data | 12 records, **12 valid, 0 issues** |
+| `sample_messy` | Detection & handling of inconsistencies | 10 records, **8 valid, 2 excluded**, exercising all 8 issue types (invalid date, invalid/missing times, negative hours, hours mismatch, overnight shift, duplicate) |
+| `sample_new_categories` | **Extensibility** — reasons are never hardcoded | 10 records with brand-new reasons (`Sensor Fault`, `Tool Change`, `Calibration`, `Shift Handover`) that appear automatically in filters, charts and legend |
+
+`sample_new_categories.*` is the best one to try: it proves the app "remains
+useful when new activity categories appear" — the new reasons show up with no
+code change, and you can then group them via **Edit groups**. See
+[`sample_data/README.md`](sample_data/README.md) for details.
 
 ---
 

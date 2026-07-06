@@ -1,0 +1,72 @@
+[
+  {
+    "DAY_DATE": "12/1/2025",
+    "START": "2025-12-01T07:00:00Z",
+    "END": "2025-12-01T08:30:00Z",
+    "HOURS": "1.5",
+    "REASON": "Sensor Fault"
+  },
+  {
+    "DAY_DATE": "12/1/2025",
+    "START": "2025-12-01T09:00:00Z",
+    "END": "2025-12-01T10:15:00Z",
+    "HOURS": "1.25",
+    "REASON": "Tool Change"
+  },
+  {
+    "DAY_DATE": "12/2/2025",
+    "START": "2025-12-02T08:00:00Z",
+    "END": "2025-12-02T09:00:00Z",
+    "HOURS": "1",
+    "REASON": "Calibration"
+  },
+  {
+    "DAY_DATE": "12/2/2025",
+    "START": "2025-12-02T13:00:00Z",
+    "END": "2025-12-02T16:00:00Z",
+    "HOURS": "3",
+    "REASON": "Sensor Fault"
+  },
+  {
+    "DAY_DATE": "12/3/2025",
+    "START": "2025-12-03T07:30:00Z",
+    "END": "2025-12-03T08:00:00Z",
+    "HOURS": "0.5",
+    "REASON": "Shift Handover"
+  },
+  {
+    "DAY_DATE": "12/3/2025",
+    "START": "2025-12-03T10:00:00Z",
+    "END": "2025-12-03T12:30:00Z",
+    "HOURS": "2.5",
+    "REASON": "Tool Change"
+  },
+  {
+    "DAY_DATE": "12/4/2025",
+    "START": "2025-12-04T14:00:00Z",
+    "END": "2025-12-04T17:00:00Z",
+    "HOURS": "3",
+    "REASON": "Sensor Fault"
+  },
+  {
+    "DAY_DATE": "12/4/2025",
+    "START": "2025-12-04T08:00:00Z",
+    "END": "2025-12-04T09:30:00Z",
+    "HOURS": "1.5",
+    "REASON": "Maintenance"
+  },
+  {
+    "DAY_DATE": "12/5/2025",
+    "START": "2025-12-05T09:00:00Z",
+    "END": "2025-12-05T10:00:00Z",
+    "HOURS": "1",
+    "REASON": "Calibration"
+  },
+  {
+    "DAY_DATE": "12/5/2025",
+    "START": "2025-12-05T15:00:00Z",
+    "END": "2025-12-05T18:00:00Z",
+    "HOURS": "3",
+    "REASON": "Breakdown"
+  }
+]

@@ -1,0 +1,72 @@
+[
+  {
+    "DAY_DATE": "11/1/2025",
+    "START": "2025-11-01T07:00:00Z",
+    "END": "2025-11-01T09:00:00Z",
+    "HOURS": "2",
+    "REASON": "Maintenance"
+  },
+  {
+    "DAY_DATE": "13/45/2025",
+    "START": "2025-11-02T08:00:00Z",
+    "END": "2025-11-02T09:00:00Z",
+    "HOURS": "1",
+    "REASON": "Cleaning"
+  },
+  {
+    "DAY_DATE": "11/2/2025",
+    "START": "not-a-time",
+    "END": "2025-11-02T10:00:00Z",
+    "HOURS": "1",
+    "REASON": "Breakdown"
+  },
+  {
+    "DAY_DATE": "11/3/2025",
+    "START": "",
+    "END": "2025-11-03T12:00:00Z",
+    "HOURS": "2",
+    "REASON": "Power Failure"
+  },
+  {
+    "DAY_DATE": "11/3/2025",
+    "START": "2025-11-03T14:00:00Z",
+    "END": "",
+    "HOURS": "1.5",
+    "REASON": "Training"
+  },
+  {
+    "DAY_DATE": "11/4/2025",
+    "START": "2025-11-04T08:00:00Z",
+    "END": "2025-11-04T10:00:00Z",
+    "HOURS": "-2",
+    "REASON": "Setup"
+  },
+  {
+    "DAY_DATE": "11/4/2025",
+    "START": "2025-11-04T09:00:00Z",
+    "END": "2025-11-04T10:00:00Z",
+    "HOURS": "9",
+    "REASON": "Breakdown"
+  },
+  {
+    "DAY_DATE": "11/5/2025",
+    "START": "2025-11-05T22:00:00Z",
+    "END": "2025-11-06T02:00:00Z",
+    "HOURS": "4",
+    "REASON": "Maintenance"
+  },
+  {
+    "DAY_DATE": "11/6/2025",
+    "START": "2025-11-06T08:00:00Z",
+    "END": "2025-11-06T09:00:00Z",
+    "HOURS": "1",
+    "REASON": "Cleaning"
+  },
+  {
+    "DAY_DATE": "11/6/2025",
+    "START": "2025-11-06T08:00:00Z",
+    "END": "2025-11-06T09:00:00Z",
+    "HOURS": "1",
+    "REASON": "Cleaning"
+  }
+]

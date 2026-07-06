@@ -1,0 +1,86 @@
+[
+  {
+    "DAY_DATE": "11/1/2025",
+    "START": "2025-11-01T07:00:00Z",
+    "END": "2025-11-01T10:00:00Z",
+    "HOURS": "3",
+    "REASON": "Maintenance"
+  },
+  {
+    "DAY_DATE": "11/1/2025",
+    "START": "2025-11-01T10:30:00Z",
+    "END": "2025-11-01T12:00:00Z",
+    "HOURS": "1.5",
+    "REASON": "Setup"
+  },
+  {
+    "DAY_DATE": "11/2/2025",
+    "START": "2025-11-02T08:00:00Z",
+    "END": "2025-11-02T11:30:00Z",
+    "HOURS": "3.5",
+    "REASON": "Training"
+  },
+  {
+    "DAY_DATE": "11/2/2025",
+    "START": "2025-11-02T13:00:00Z",
+    "END": "2025-11-02T14:12:00Z",
+    "HOURS": "1.2",
+    "REASON": "Quality Check"
+  },
+  {
+    "DAY_DATE": "11/3/2025",
+    "START": "2025-11-03T09:15:00Z",
+    "END": "2025-11-03T10:45:00Z",
+    "HOURS": "1.5",
+    "REASON": "Cleaning"
+  },
+  {
+    "DAY_DATE": "11/3/2025",
+    "START": "2025-11-03T14:00:00Z",
+    "END": "2025-11-03T16:30:00Z",
+    "HOURS": "2.5",
+    "REASON": "Breakdown"
+  },
+  {
+    "DAY_DATE": "11/4/2025",
+    "START": "2025-11-04T07:30:00Z",
+    "END": "2025-11-04T09:00:00Z",
+    "HOURS": "1.5",
+    "REASON": "Power Failure"
+  },
+  {
+    "DAY_DATE": "11/4/2025",
+    "START": "2025-11-04T12:00:00Z",
+    "END": "2025-11-04T15:00:00Z",
+    "HOURS": "3",
+    "REASON": "Maintenance"
+  },
+  {
+    "DAY_DATE": "11/5/2025",
+    "START": "2025-11-05T08:00:00Z",
+    "END": "2025-11-05T09:48:00Z",
+    "HOURS": "1.8",
+    "REASON": "Setup"
+  },
+  {
+    "DAY_DATE": "11/5/2025",
+    "START": "2025-11-05T15:30:00Z",
+    "END": "2025-11-05T18:00:00Z",
+    "HOURS": "2.5",
+    "REASON": "Breakdown"
+  },
+  {
+    "DAY_DATE": "11/6/2025",
+    "START": "2025-11-06T10:00:00Z",
+    "END": "2025-11-06T11:30:00Z",
+    "HOURS": "1.5",
+    "REASON": "Quality Check"
+  },
+  {
+    "DAY_DATE": "11/6/2025",
+    "START": "2025-11-06T13:15:00Z",
+    "END": "2025-11-06T14:45:00Z",
+    "HOURS": "1.5",
+    "REASON": "Cleaning"
+  }
+]
