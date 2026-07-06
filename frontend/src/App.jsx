@@ -267,7 +267,10 @@ export default function App() {
       )}
 
       <footer className="foot muted">
-        Renata assignment · React + Django + DRF · data-derived, no hardcoded categories.
+        Built by Md Raisul Islam Rahad ·{' '}
+        <a href="https://github.com/raisulll" target="_blank" rel="noopener noreferrer">
+          github.com/raisulll
+        </a>
       </footer>
 
       {editingGroups && (

@@ -11,32 +11,6 @@ and is exposed as a REST API the frontend consumes.
 
 ---
 
-## Table of contents
-- [Shift Operations Analytics](#shift-operations-analytics)
-  - [Table of contents](#table-of-contents)
-  - [Features](#features)
-    - [Enhancements (beyond the brief)](#enhancements-beyond-the-brief)
-  - [Tech stack](#tech-stack)
-  - [Project structure](#project-structure)
-  - [Getting started](#getting-started)
-    - [Prerequisites](#prerequisites)
-    - [1) Backend (Django API)](#1-backend-django-api)
-    - [2) Frontend (React)](#2-frontend-react)
-    - [3) Open the app](#3-open-the-app)
-    - [Sample datasets](#sample-datasets)
-  - [Configuration](#configuration)
-  - [Deployment (Render + Vercel)](#deployment-render--vercel)
-  - [API reference](#api-reference)
-  - [Data cleaning: detected inconsistencies \& handling](#data-cleaning-detected-inconsistencies--handling)
-  - [Breakdown streak analysis](#breakdown-streak-analysis)
-  - [Operational Efficiency Score](#operational-efficiency-score)
-  - [Operational insights](#operational-insights)
-  - [Extensibility: no hardcoded categories](#extensibility-no-hardcoded-categories)
-  - [Testing](#testing)
-  - [Design decisions \& assumptions](#design-decisions--assumptions)
-
----
-
 ## Features
 - **Data-quality pipeline** — detects, documents and handles inconsistencies in
   the raw data; nothing is silently dropped. Every flagged row appears in a
@@ -71,7 +45,7 @@ and is exposed as a REST API the frontend consumes.
 | Frontend | React 19 + Vite |
 | Backend | Django 6 + Django REST Framework |
 | Data | pandas |
-| Database | SQLite |
+| Database | SQLite (local dev) · PostgreSQL — Supabase (production) |
 
 ## Project structure
 ```
@@ -93,7 +67,7 @@ and is exposed as a REST API the frontend consumes.
 ├── frontend/
 │   ├── src/
 │   │   ├── api.js              # API client
-│   │   ├── colors.js          # deterministic reason palette
+│   │   ├── colors.js           # deterministic reason palette
 │   │   ├── components/         # chart, filters, panels, upload
 │   │   └── App.jsx
 │   └── .env.example
@@ -116,27 +90,14 @@ You run **two processes**: the Django API (port 8000) and the Vite dev server
 (port 5173). Open two terminals.
 
 ### 1) Backend (Django API)
-
-**Windows (PowerShell):**
-```powershell
+```bash
 cd backend
 python -m venv .venv
-.venv\Scripts\Activate.ps1
+source .venv/bin/activate                 # Windows: .venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 python manage.py migrate
 python manage.py load_dataset --replace   # load + clean the bundled dataset
 python manage.py runserver                # http://127.0.0.1:8000
-```
-
-**macOS / Linux (bash):**
-```bash
-cd backend
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-python manage.py migrate
-python manage.py load_dataset --replace
-python manage.py runserver
 ```
 
 ### 2) Frontend (React)
@@ -191,38 +152,14 @@ Frontend: `VITE_API_BASE` (default `/api`) and `VITE_API_PROXY`
 
 ---
 
-## Deployment (Render + Vercel)
-The backend deploys to **Render** (Django API), the database is **Supabase
-Postgres**, and the frontend is on **Vercel** (static React build). No Docker.
-Two config files drive it: `render.yaml` (backend blueprint) and
-`frontend/vercel.json`.
+## Live demo
+The app is deployed with the frontend on **Vercel** and the Django API on
+**Render** (data in **Supabase Postgres**):
 
-**1. Database on Supabase.** Create a project, then **Project Settings →
-Database → Connection string → URI** and copy the **Session pooler** string
-(port `5432`, host `…pooler.supabase.com`, user `postgres.<ref>`) — not Direct
-(IPv6-only) or Transaction (port 6543). Append `?sslmode=require`.
-
-**2. Backend on Render.** New → **Blueprint** → pick this repo; Render reads
-`render.yaml` and creates the `shift-analytics-api` web service. It generates
-`SECRET_KEY`, sets `DEBUG=False`, runs `collectstatic` at build, and on each boot
-runs `migrate` + `load_dataset --if-empty` (seeds the bundled sample only when the
-database is empty, so restarts never overwrite uploaded data). In the service's
-**Environment** tab set **`DATABASE_URL`** to the Supabase Session-pooler URL.
-Note the API URL, e.g. `https://shift-analytics-api.onrender.com`.
-
-**3. Frontend on Vercel.** New Project → import this repo → set **Root
-Directory** to `frontend` (Vercel auto-detects Vite). Add an environment
-variable **`VITE_API_BASE`** = `https://<your-render-host>/api`, then deploy.
-
-**4. Wire them together.** Set Render's **`CORS_ALLOWED_ORIGINS`** to the exact
-Vercel domain (redeploys the API), and confirm Vercel's `VITE_API_BASE` points at
-the Render `/api`. Open the Vercel URL — the dashboard should load and analyze the
-bundled dataset.
-
-> **Free-tier notes.** Data is durable — records live in Supabase Postgres, so
-> uploads survive restarts. Render's free web service sleeps after ~15 min idle
-> (first request after a nap takes ~30–60 s to wake), and **Supabase pauses a
-> free project after ~1 week of inactivity** (resume it from the dashboard).
+| | URL |
+|---|---|
+| **App (frontend)** | https://shift-operations-analytics.vercel.app/ |
+| **API (backend)** | https://shift-analytics-api.onrender.com |
 
 ---
 
@@ -359,7 +296,11 @@ python manage.py test shifts
 ```
 
 ## Design decisions & assumptions
-- **SQLite.** Zero-setup local database; no external services to run.
+- **SQLite locally, Postgres in production.** The same code runs on both — Django
+  picks the engine from `DATABASE_URL` (`dj-database-url`). Local dev uses a
+  zero-setup SQLite file (no external services); production points `DATABASE_URL`
+  at **Supabase Postgres** for durable, concurrent storage. No schema changes are
+  needed to switch — the models and migrations are database-agnostic.
 - **Analysis on the backend.** All cleaning and analytics run server-side (Python/
   pandas) and are exposed via REST; the frontend only renders.
 - **Timestamps are UTC** (`...Z`) as provided; `DAY_DATE` is treated as the
