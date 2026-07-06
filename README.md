@@ -15,12 +15,18 @@ and is exposed as a REST API the frontend consumes.
 - **Data-quality pipeline** — detects, documents and handles inconsistencies in
   the raw data; nothing is silently dropped. Every flagged row appears in a
   quality report with the issue and the action taken.
-- **Shift-analysis chart** — date on the X axis, time of day (12 AM → next 12 PM,
-  a 36-hour span) on the Y axis, one colored bar per shift by reason. The
-  extended axis renders overnight (cross-midnight) shifts correctly.
+- **Shift-analysis chart** — built from the **clean, consistent (valid) records
+  only**; date on the X axis, time of day (12 AM → next 12 PM, a 36-hour span)
+  on the Y axis, one colored bar per shift, coloured by reason and covering
+  **every reason in the dataset**. The extended axis renders overnight
+  (cross-midnight) shifts correctly.
 - **Filtering** — by date range, valid-only toggle, and by **reason _or_ group**
   (multi-select chips that follow the active Reason/Group toggle — selecting a
-  group filters to all of its member reasons).
+  group filters to all of its member reasons). **All filters combine** (they are
+  applied together / AND-ed), so you can narrow to, say, a date window *and* a
+  specific group at once.
+- **Aggregation** — hours rolled up by reason/group and by day-of-week, plus the
+  Pareto view of the vital-few downtime drivers.
 - **Operational Efficiency Score** — overall and as a daily trend.
 - **Breakdown streak detection** — configurable, with a `breakdown` vs
   `failure_family` toggle.
