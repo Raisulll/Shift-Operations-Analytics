@@ -25,6 +25,7 @@ and is exposed as a REST API the frontend consumes.
     - [3) Open the app](#3-open-the-app)
     - [Sample datasets](#sample-datasets)
   - [Configuration](#configuration)
+  - [Deployment (Render + Vercel)](#deployment-render--vercel)
   - [API reference](#api-reference)
   - [Data cleaning: detected inconsistencies \& handling](#data-cleaning-detected-inconsistencies--handling)
   - [Breakdown streak analysis](#breakdown-streak-analysis)
@@ -182,10 +183,46 @@ Everything runs with **no configuration**. To override defaults, copy
 | `REASON_GROUPS` | *(none)* | JSON map to group reasons into buckets |
 | `STREAK_PRESETS` | breakdown / failure_family | JSON target sets for streak detection |
 | `DEFAULT_DATASET_PATH` | bundled CSV | Dataset loaded by `load_dataset` |
+| `DATABASE_URL` | SQLite file | Postgres URL in production (Render injects it); unset → local SQLite |
 | `SECRET_KEY`, `DEBUG`, `ALLOWED_HOSTS`, `CORS_ALLOWED_ORIGINS` | dev defaults | Standard Django settings |
 
 Frontend: `VITE_API_BASE` (default `/api`) and `VITE_API_PROXY`
 (default `http://127.0.0.1:8000`) — see `frontend/.env.example`.
+
+---
+
+## Deployment (Render + Vercel)
+The backend deploys to **Render** (Django API), the database is **Supabase
+Postgres**, and the frontend is on **Vercel** (static React build). No Docker.
+Two config files drive it: `render.yaml` (backend blueprint) and
+`frontend/vercel.json`.
+
+**1. Database on Supabase.** Create a project, then **Project Settings →
+Database → Connection string → URI** and copy the **Session pooler** string
+(port `5432`, host `…pooler.supabase.com`, user `postgres.<ref>`) — not Direct
+(IPv6-only) or Transaction (port 6543). Append `?sslmode=require`.
+
+**2. Backend on Render.** New → **Blueprint** → pick this repo; Render reads
+`render.yaml` and creates the `shift-analytics-api` web service. It generates
+`SECRET_KEY`, sets `DEBUG=False`, runs `collectstatic` at build, and on each boot
+runs `migrate` + `load_dataset --if-empty` (seeds the bundled sample only when the
+database is empty, so restarts never overwrite uploaded data). In the service's
+**Environment** tab set **`DATABASE_URL`** to the Supabase Session-pooler URL.
+Note the API URL, e.g. `https://shift-analytics-api.onrender.com`.
+
+**3. Frontend on Vercel.** New Project → import this repo → set **Root
+Directory** to `frontend` (Vercel auto-detects Vite). Add an environment
+variable **`VITE_API_BASE`** = `https://<your-render-host>/api`, then deploy.
+
+**4. Wire them together.** Set Render's **`CORS_ALLOWED_ORIGINS`** to the exact
+Vercel domain (redeploys the API), and confirm Vercel's `VITE_API_BASE` points at
+the Render `/api`. Open the Vercel URL — the dashboard should load and analyze the
+bundled dataset.
+
+> **Free-tier notes.** Data is durable — records live in Supabase Postgres, so
+> uploads survive restarts. Render's free web service sleeps after ~15 min idle
+> (first request after a nap takes ~30–60 s to wake), and **Supabase pauses a
+> free project after ~1 week of inactivity** (resume it from the dashboard).
 
 ---
 

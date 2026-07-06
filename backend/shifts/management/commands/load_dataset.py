@@ -18,9 +18,24 @@ class Command(BaseCommand):
             action="store_true",
             help="Delete existing records before loading (default behaviour).",
         )
+        parser.add_argument(
+            "--if-empty",
+            action="store_true",
+            help="Only load when the database has no records yet. Used on deploy "
+            "so a boot never overwrites data (e.g. an uploaded dataset) that "
+            "already persists in Postgres.",
+        )
 
     def handle(self, *args, **options):
         path = options["path"]
+
+        if options["if_empty"]:
+            from shifts.models import ShiftRecord
+
+            if ShiftRecord.objects.exists():
+                self.stdout.write("Records already present; skipping seed (--if-empty).")
+                return
+
         try:
             summary = ingest_csv(path, replace=True)
         except FileNotFoundError:

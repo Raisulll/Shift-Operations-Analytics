@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 
 from pathlib import Path
 
+import dj_database_url
 from decouple import Csv, config
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -35,6 +36,12 @@ ALLOWED_HOSTS = config(
     'ALLOWED_HOSTS', default='localhost,127.0.0.1', cast=Csv()
 )
 
+# Render injects the service's public hostname here; trust it automatically so
+# we don't have to hardcode the *.onrender.com URL.
+RENDER_EXTERNAL_HOSTNAME = config('RENDER_EXTERNAL_HOSTNAME', default='')
+if RENDER_EXTERNAL_HOSTNAME:
+    ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
+
 
 # Application definition
 
@@ -54,6 +61,9 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    # WhiteNoise serves static files (admin + DRF browsable API) in production,
+    # so no separate static host is needed. Must sit right after SecurityMiddleware.
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -86,11 +96,13 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
+# Reads DATABASE_URL when present (Render provides one for the Postgres add-on);
+# otherwise falls back to a local SQLite file so dev needs zero setup.
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
+    'default': dj_database_url.config(
+        default=f'sqlite:///{BASE_DIR / "db.sqlite3"}',
+        conn_max_age=600,
+    )
 }
 
 
@@ -129,6 +141,21 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+# collectstatic gathers admin + DRF assets here; WhiteNoise serves them.
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+# Use WhiteNoise's hashed+compressed storage only in production. It needs a
+# collectstatic manifest, which local `runserver` (DEBUG=True) doesn't build —
+# so in dev we keep Django's default finder-based static handling.
+STORAGES = {
+    'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
+    'staticfiles': {
+        'BACKEND': (
+            'django.contrib.staticfiles.storage.StaticFilesStorage'
+            if DEBUG
+            else 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+        )
+    },
+}
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/6.0/ref/settings/#default-auto-field
@@ -143,12 +170,28 @@ REST_FRAMEWORK = {
     ],
 }
 
-# CORS — allow the React dev server to call the API.
+# CORS — allow the React frontend to call the API. In dev that's the Vite
+# server; in production set this to your Vercel URL, e.g.
+#   CORS_ALLOWED_ORIGINS=https://your-app.vercel.app
 CORS_ALLOWED_ORIGINS = config(
     'CORS_ALLOWED_ORIGINS',
     default='http://localhost:5173,http://127.0.0.1:5173',
     cast=Csv(),
 )
+# Optionally allow Vercel preview deployments (…-git-…vercel.app) via regex.
+CORS_ALLOWED_ORIGIN_REGEXES = config(
+    'CORS_ALLOWED_ORIGIN_REGEXES', default='', cast=Csv()
+)
+
+# CSRF trust for the browsable API / admin login over HTTPS. The backend's own
+# Render origin is trusted automatically; add others (incl. the frontend) via env.
+CSRF_TRUSTED_ORIGINS = config('CSRF_TRUSTED_ORIGINS', default='', cast=Csv())
+if RENDER_EXTERNAL_HOSTNAME:
+    CSRF_TRUSTED_ORIGINS.append(f'https://{RENDER_EXTERNAL_HOSTNAME}')
+
+# Render terminates TLS at its proxy and forwards the original scheme here, so
+# Django knows the request was HTTPS (needed for secure cookies / redirects).
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 # Path to the dataset that ships with the repo (loaded on first run and used
 # as the fallback whenever no CSV has been uploaded).
