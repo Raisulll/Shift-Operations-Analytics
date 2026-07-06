@@ -14,12 +14,31 @@ export default function ShiftAnalysisPanel({
   hasGroups,
   onEditGroups,
   exportHref,
+  reasons = [],
 }) {
   const segments = chart?.segments || []
   const chartKeys = useMemo(
     () => [...new Set(segments.map(keyOf))].sort(),
     [segments, keyOf],
   )
+
+  // In group mode, show which raw reasons make up each real group (a group
+  // that actually merges reasons — not a standalone reason that is its own
+  // group). This makes the grouping visible at a glance.
+  const groupComposition = useMemo(() => {
+    if (dimension !== 'group') return []
+    const byLabel = new Map()
+    for (const r of reasons) {
+      const label = r.group || r.reason
+      const members = byLabel.get(label) || []
+      members.push(r.reason)
+      byLabel.set(label, members)
+    }
+    return [...byLabel.entries()]
+      .filter(([label, members]) => members.length > 1 || members[0] !== label)
+      .map(([label, members]) => ({ label, members: members.sort() }))
+      .sort((a, b) => a.label.localeCompare(b.label))
+  }, [dimension, reasons])
 
   return (
     <div className="panel">
@@ -55,6 +74,19 @@ export default function ShiftAnalysisPanel({
       </div>
       <ShiftChart data={chart} colorMap={colorMap} keyOf={keyOf} />
       <Legend reasons={chartKeys} colorMap={colorMap} />
+
+      {groupComposition.length > 0 && (
+        <div className="group-legend">
+          <div className="group-legend-title">Groups → reasons</div>
+          {groupComposition.map((g) => (
+            <div className="group-legend-row" key={g.label}>
+              <span className="swatch" style={{ background: colorMap[g.label] || '#888' }} />
+              <b>{g.label}</b>
+              <span className="group-legend-members">{g.members.join(', ')}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

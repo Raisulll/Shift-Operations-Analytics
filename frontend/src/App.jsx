@@ -193,6 +193,7 @@ export default function App() {
             hasGroups={hasGroups}
             onEditGroups={() => setEditingGroups(true)}
             exportHref={api.exportCsvUrl(filters)}
+            reasons={reasons}
           />
 
           {/* key={version} remounts the card (clearing any stale summary)

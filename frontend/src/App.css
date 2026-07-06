@@ -650,6 +650,36 @@ th {
   border-radius: 4px;
   display: inline-block;
 }
+.group-legend {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line-2);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.group-legend-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--muted);
+  margin-bottom: 2px;
+}
+.group-legend-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--ink-2);
+  flex-wrap: wrap;
+}
+.group-legend-members {
+  color: var(--muted);
+}
+.group-legend-members::before {
+  content: '= ';
+}
 
 /* --- Head controls (dimension toggle + edit groups) --- */
 .head-controls {
