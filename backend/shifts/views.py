@@ -1,6 +1,9 @@
+import csv
 from collections import Counter
 
 from django.db.models import Count, Max, Min
+from django.http import HttpResponse
+from django.views.decorators.http import require_GET
 from rest_framework import status
 from rest_framework.decorators import api_view, parser_classes
 from rest_framework.parsers import FormParser, MultiPartParser
@@ -199,6 +202,55 @@ def insights(request):
     return Response({"insights": analysis.insights(qs, quality_summary)})
 
 
+@require_GET
+def export_csv(request):
+    """Download the current (filtered) cleaned records as a CSV file.
+
+    Plain Django view (not DRF) so it streams a real file with a download
+    header. Accepts the same query-param filters as the other endpoints, plus
+    the resolved group for each reason.
+    """
+    qs = apply_filters(ShiftRecord.objects.all(), request.GET).order_by(
+        "day_date", "start"
+    )
+    lookup = group_map()
+
+    resp = HttpResponse(content_type="text/csv")
+    resp["Content-Disposition"] = 'attachment; filename="shift_records.csv"'
+    writer = csv.writer(resp)
+    writer.writerow(
+        ["source_row", "day_date", "start", "end", "hours", "reason", "group", "valid"]
+    )
+    for r in qs:
+        writer.writerow(
+            [
+                r.source_row,
+                r.day_date.isoformat() if r.day_date else "",
+                r.start.isoformat() if r.start else "",
+                r.end.isoformat() if r.end else "",
+                r.hours if r.hours is not None else "",
+                r.reason,
+                group_of(r.reason, lookup),
+                "yes" if r.is_valid else "no",
+            ]
+        )
+    return resp
+
+
+@api_view(["GET"])
+def reliability(request):
+    """Maintenance reliability KPIs (MTBF / MTTR / availability). Filterable like
+    the other analysis endpoints.
+
+    "Failures" are the unplanned-failure family (Breakdown, Power Failure, Machine
+    Jam, Unknown Failure by default — overridable via STREAK_PRESETS).
+    """
+    qs = apply_filters(ShiftRecord.objects.all(), request.query_params)
+    presets = streak_presets()
+    failure_reasons = presets.get("failure_family") or sorted(non_productive_reasons())
+    return Response(analysis.reliability(qs, failure_reasons))
+
+
 @api_view(["GET", "PUT"])
 def grouping(request):
     """Get or set the active reason grouping.
@@ -224,6 +276,93 @@ def grouping(request):
     return Response(
         {"groups": _groups_by_label(group_map()), "available_reasons": available}
     )
+
+
+@api_view(["POST"])
+def suggest_grouping(request):
+    """AI-suggested grouping of the active dataset's reasons.
+
+    Returns {groups: {label: [reasons]}, available_reasons: [...]} exactly like
+    GET /grouping, but the groups are proposed by Claude rather than saved. The
+    frontend pre-fills the editor with these; nothing persists until the user
+    saves. Requires ANTHROPIC_API_KEY on the server.
+    """
+    from . import ai
+
+    available = list(
+        ShiftRecord.objects.filter(is_valid=True)
+        .values_list("reason", flat=True)
+        .distinct()
+        .order_by("reason")
+    )
+    try:
+        groups = ai.suggest_groups(available)
+    except ai.AIUnavailable as exc:
+        return Response(
+            {"detail": str(exc)}, status=status.HTTP_503_SERVICE_UNAVAILABLE
+        )
+    except Exception as exc:  # API / network / rate-limit errors
+        return Response(
+            {"detail": f"AI grouping failed: {exc}"},
+            status=status.HTTP_502_BAD_GATEWAY,
+        )
+    return Response({"groups": groups, "available_reasons": available})
+
+
+@api_view(["GET"])
+def ai_summary(request):
+    """A plain-language, AI-written executive summary of the current view.
+
+    Computes the same analytics the dashboard shows (respecting the active
+    filters), then asks the LLM to phrase them as a short manager briefing. The
+    model only rephrases numbers we compute — it never sees raw rows.
+    Requires GROQ_API_KEY on the server.
+    """
+    from . import ai
+
+    qs = apply_filters(ShiftRecord.objects.all(), request.query_params)
+    all_records = ShiftRecord.objects.all()
+    valid = all_records.filter(is_valid=True).count()
+    quality_summary = {"total": all_records.count(), "valid": valid}
+
+    eff = analysis.efficiency(qs)
+    scored = [d for d in eff["by_date"] if d["efficiency"] is not None]
+    label, target = resolve_streak_target(
+        request.query_params.get("preset"), request.query_params.get("reasons")
+    )
+    streaks = analysis.detect_streaks(qs, target, min_days=2)
+
+    context = {
+        "overall_efficiency_percent": eff["overall"]["efficiency"],
+        "total_hours": eff["overall"]["total_hours"],
+        "productive_hours": eff["overall"]["productive_hours"],
+        "worst_days": sorted(scored, key=lambda d: d["efficiency"])[:3],
+        "insights": [
+            {"title": i["title"], "detail": i["detail"]}
+            for i in analysis.insights(qs, quality_summary)
+        ],
+        "top_downtime_streaks": streaks[:3],
+        "data_quality": quality_summary,
+    }
+
+    if context["overall_efficiency_percent"] is None:
+        return Response(
+            {"detail": "Not enough data in the current view to summarize."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    try:
+        summary = ai.summarize(context)
+    except ai.AIUnavailable as exc:
+        return Response(
+            {"detail": str(exc)}, status=status.HTTP_503_SERVICE_UNAVAILABLE
+        )
+    except Exception as exc:  # API / network / rate-limit errors
+        return Response(
+            {"detail": f"AI summary failed: {exc}"},
+            status=status.HTTP_502_BAD_GATEWAY,
+        )
+    return Response({"summary": summary})
 
 
 @api_view(["POST"])

@@ -15,4 +15,21 @@ export default defineConfig({
       },
     },
   },
+  build: {
+    // The recharts + d3 vendor chunk is inherently large; it's isolated below so
+    // it caches independently of the app code. Raise the warning past its size.
+    chunkSizeWarningLimit: 600,
+    rollupOptions: {
+      output: {
+        // Split vendor libraries into their own long-cacheable chunks so the app
+        // code (which changes far more often) stays small and users don't
+        // re-download React / the charting library on every deploy.
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return
+          if (/[\\/](react|react-dom|scheduler|react-is)[\\/]/.test(id)) return 'react'
+          return 'vendor' // recharts, d3, everything else
+        },
+      },
+    },
+  },
 })

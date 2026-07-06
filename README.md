@@ -18,7 +18,9 @@ and is exposed as a REST API the frontend consumes.
 - **Shift-analysis chart** — date on the X axis, time of day (12 AM → next 12 PM,
   a 36-hour span) on the Y axis, one colored bar per shift by reason. The
   extended axis renders overnight (cross-midnight) shifts correctly.
-- **Filtering** — by date range, by reason (multi-select), and valid-only toggle.
+- **Filtering** — by date range, valid-only toggle, and by **reason _or_ group**
+  (multi-select chips that follow the active Reason/Group toggle — selecting a
+  group filters to all of its member reasons).
 - **Operational Efficiency Score** — overall and as a daily trend.
 - **Breakdown streak detection** — configurable, with a `breakdown` vs
   `failure_family` toggle.
@@ -31,21 +33,38 @@ and is exposed as a REST API the frontend consumes.
 
 ### Enhancements (beyond the brief)
 - **Interactive reason grouping** — create/edit reason groups in the browser and
-  a *Reason ↔ Group* toggle re-aggregates every chart, streak and score live.
-  This *demonstrates* the "categories can be grouped" requirement rather than
-  just claiming it.
+  a *Reason ↔ Group* toggle re-aggregates every chart, streak, score and filter
+  live. This *demonstrates* the "categories can be grouped" requirement rather
+  than just claiming it.
+- **AI reason grouping** — a **✨ Suggest with AI** button asks an LLM to propose
+  groups (merging synonyms/typos/casing) which pre-fill the editor for approval.
+  The model's output is validated against the real reason list, so it can't
+  invent categories.
+- **AI executive summary** — an on-demand, plain-language briefing of the current
+  view (efficiency, biggest downtime driver, worst day, one recommendation). The
+  model only rephrases numbers computed server-side — it never sees raw rows, so
+  it can't fabricate figures.
+- **Reliability KPIs** — **MTBF / MTTR / Availability** over the unplanned-failure
+  family, each with a hover tooltip showing exactly how it was computed.
 - **Extra visualizations** — hours by reason/group, a **Pareto chart** (vital-few
   downtime drivers), an **hours-by-day-of-week** breakdown, and an **activity
   heatmap** (shifts active by hour of day across dates).
-- **KPI summary row** and a polished dashboard UI.
+- **CSV export** of the current (filtered) view, with the resolved group column.
+- **KPI summary row**, a resilient cold-start loading state, and a polished
+  dashboard UI.
+
+> The two AI features (Groq) are **optional**: without a `GROQ_API_KEY` the rest
+> of the app works exactly the same and those buttons surface a clear message.
 
 ## Tech stack
 | Layer | Choice |
 |---|---|
-| Frontend | React 19 + Vite |
+| Frontend | React 19 + Vite  |
 | Backend | Django 6 + Django REST Framework |
 | Data | pandas |
 | Database | SQLite (local dev) · PostgreSQL — Supabase (production) |
+| AI (optional) | Google Groq (LLM) — free tier, called over the standard library |
+| Tests | Django test runner (backend) · Vitest + React Testing Library (frontend) |
 
 ## Project structure
 ```
@@ -56,11 +75,12 @@ and is exposed as a REST API the frontend consumes.
 │   │   ├── data/shift_data.csv # bundled default dataset
 │   │   ├── models.py           # ShiftRecord
 │   │   ├── cleaning.py         # data-cleaning pipeline (+ ingest_csv)
-│   │   ├── analysis.py         # efficiency, streaks, chart shaping, insights
+│   │   ├── analysis.py         # efficiency, streaks, reliability, chart, insights
 │   │   ├── grouping.py         # data-derived reason policy (no hardcoding)
+│   │   ├── ai.py               # optional AI grouping + summary (Groq)
 │   │   ├── views.py / urls.py  # REST API
 │   │   ├── serializers.py
-│   │   ├── tests.py            # 18 unit tests
+│   │   ├── tests.py            # 25 tests (unit + DRF API integration)
 │   │   └── management/commands/load_dataset.py
 │   ├── requirements.txt
 │   └── .env.example
@@ -68,8 +88,10 @@ and is exposed as a REST API the frontend consumes.
 │   ├── src/
 │   │   ├── api.js              # API client
 │   │   ├── colors.js           # deterministic reason palette
-│   │   ├── components/         # chart, filters, panels, upload
+│   │   ├── hooks/              # useDashboardData (data-fetch orchestration)
+│   │   ├── components/         # chart, filters, panels, upload (+ *.test.jsx)
 │   │   └── App.jsx
+│   ├── vitest.config.js
 │   └── .env.example
 └── sample_data/                # extra datasets for the Upload feature (CSV/XLSX/JSON)
     ├── sample_clean.*          # happy path — 12 records, 0 issues
@@ -145,6 +167,8 @@ Everything runs with **no configuration**. To override defaults, copy
 | `STREAK_PRESETS` | breakdown / failure_family | JSON target sets for streak detection |
 | `DEFAULT_DATASET_PATH` | bundled CSV | Dataset loaded by `load_dataset` |
 | `DATABASE_URL` | SQLite file | Postgres URL in production (Render injects it); unset → local SQLite |
+| `GROQ_API_KEY` | *(none)* | Enables the AI grouping + summary features. Unset → those features are cleanly disabled. Free key: https://console.groq.com/keys |
+| `GROQ_MODEL` | `llama-3.3-70b-versatile` | LLM used for AI features (`llama-3.1-8b-instant` for higher limits) |
 | `SECRET_KEY`, `DEBUG`, `ALLOWED_HOSTS`, `CORS_ALLOWED_ORIGINS` | dev defaults | Standard Django settings |
 
 Frontend: `VITE_API_BASE` (default `/api`) and `VITE_API_PROXY`
@@ -172,10 +196,14 @@ Base path: `/api`
 | GET | `/quality-report` | Summary + every flagged row with issues and actions |
 | GET | `/reasons` | Distinct reasons (data-derived) + counts + grouping |
 | GET / PUT | `/grouping` | Get or set the active reason grouping ({label: [reasons]}) |
+| POST | `/grouping/suggest` | AI-suggested grouping (Groq). 503 if not configured |
 | GET | `/analysis/efficiency` | Efficiency score, overall and per day |
 | GET | `/analysis/streaks` | Breakdown streaks. Params: `preset`, `reasons`, `min_days` |
 | GET | `/analysis/shift-chart` | Per-record segments for the shift chart |
 | GET | `/analysis/insights` | Actionable insights |
+| GET | `/analysis/reliability` | MTBF / MTTR / availability over unplanned failures |
+| GET | `/analysis/ai-summary` | AI executive summary of the current view (Groq). 503 if not configured |
+| GET | `/dataset/export.csv` | Download the current (filtered) records as CSV |
 | POST | `/dataset/upload` | Upload a CSV/Excel/JSON file (form field `file`); replaces the active dataset |
 
 All GET analysis endpoints accept the same filter params as `/dataset`.
@@ -287,12 +315,22 @@ categories appear or categories are grouped together." Accordingly:
   bucket (e.g. an "Equipment Failure" group) without touching analysis code.
 
 ## Testing
-18 unit tests cover the cleaning rules (each issue code), the analysis layer
-(efficiency exclusion, consecutive-day streak logic, configurable targets,
-overnight-axis handling, insight generation), and reason grouping:
+**Backend — 25 tests** (unit + integration): the cleaning rules (each issue
+code), the analysis layer (efficiency exclusion, consecutive-day streak logic,
+configurable targets, overnight-axis handling, insight generation), reason
+grouping, and a set of **DRF API integration tests** that hit the endpoints and
+assert exact numbers, filtering, the grouping PUT→GET round-trip, and the CSV
+download:
 ```bash
 cd backend
 python manage.py test shifts
+```
+
+**Frontend — Vitest + React Testing Library** for component behavior (filter
+chips, group collapse/expand, reliability tiles):
+```bash
+cd frontend
+npm test
 ```
 
 ## Design decisions & assumptions

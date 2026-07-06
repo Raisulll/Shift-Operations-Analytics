@@ -30,10 +30,19 @@ export const api = {
     if (!res.ok) throw new Error(`Save grouping failed: ${res.status}`)
     return res.json()
   },
+  suggestGrouping: async () => {
+    const res = await fetch(`${BASE}/grouping/suggest`, { method: 'POST' })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) throw new Error(data.detail || `Suggest failed: ${res.status}`)
+    return data
+  },
   efficiency: (f) => get('/analysis/efficiency', f),
   streaks: (f) => get('/analysis/streaks', f),
   shiftChart: (f) => get('/analysis/shift-chart', f),
   insights: (f) => get('/analysis/insights', f),
+  aiSummary: (f) => get('/analysis/ai-summary', f),
+  reliability: (f) => get('/analysis/reliability', f),
+  exportCsvUrl: (f) => `${BASE}/dataset/export.csv${qs(f)}`,
   upload: async (file) => {
     const body = new FormData()
     body.append('file', file)

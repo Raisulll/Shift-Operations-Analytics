@@ -177,6 +177,50 @@ def shift_chart(records) -> dict:
     }
 
 
+# --- Reliability metrics (MTBF / MTTR / availability) -----------------------
+def reliability(records, failure_reasons: list[str]) -> dict:
+    """Classic maintenance reliability metrics over the given records.
+
+    A "failure" is any valid record whose reason is in ``failure_reasons``
+    (unplanned equipment failures). Uptime is the remaining logged time.
+
+        MTTR (Mean Time To Repair)      = downtime hours / failure count
+        MTBF (Mean Time Between Failures)= uptime hours   / failure count
+        Availability                    = uptime / total x 100
+                                        = MTBF / (MTBF + MTTR) x 100
+
+    All three tie together consistently. Returns None for the ratios when there
+    are no failures (nothing to average) or no logged time.
+    """
+    fset = set(failure_reasons)
+    total = 0.0
+    downtime = 0.0
+    failures = 0
+    for r in records:
+        if r.hours is None:
+            continue
+        total += r.hours
+        if r.reason in fset:
+            downtime += r.hours
+            failures += 1
+
+    uptime = total - downtime
+
+    def rnd(x):
+        return round(x, 2)
+
+    return {
+        "failure_reasons": sorted(fset),
+        "failure_count": failures,
+        "total_hours": rnd(total),
+        "uptime_hours": rnd(uptime),
+        "downtime_hours": rnd(downtime),
+        "mttr_hours": rnd(downtime / failures) if failures else None,
+        "mtbf_hours": rnd(uptime / failures) if failures else None,
+        "availability_percent": rnd((uptime / total) * 100) if total else None,
+    }
+
+
 # --- Actionable insights ----------------------------------------------------
 def _dominant_window(hours: list[int], span: int = 5) -> tuple[int, int, int] | None:
     """Find the ``span``-hour window (of the day) containing the most events."""

@@ -9,6 +9,8 @@ export default function GroupingEditor({ onClose, onSaved }) {
   const [map, setMap] = useState({}) // { reason: groupLabel | '' }
   const [busy, setBusy] = useState(false)
   const [loaded, setLoaded] = useState(false)
+  const [aiBusy, setAiBusy] = useState(false)
+  const [aiError, setAiError] = useState('')
 
   useEffect(() => {
     api.grouping().then((d) => {
@@ -40,6 +42,28 @@ export default function GroupingEditor({ onClose, onSaved }) {
   }
 
   const clearAll = () => setMap((m) => Object.fromEntries(Object.keys(m).map((k) => [k, ''])))
+
+  // Ask the backend (Claude) to propose groups, then pre-fill the editor with
+  // them. It replaces the current assignments so the suggestion is applied
+  // cleanly; the user can still tweak any row before saving.
+  const suggestAI = async () => {
+    setAiBusy(true)
+    setAiError('')
+    try {
+      const d = await api.suggestGrouping()
+      setMap((m) => {
+        const next = Object.fromEntries(Object.keys(m).map((k) => [k, '']))
+        for (const [label, members] of Object.entries(d.groups || {})) {
+          for (const r of members) if (r in next) next[r] = label
+        }
+        return next
+      })
+    } catch (e) {
+      setAiError(e.message)
+    } finally {
+      setAiBusy(false)
+    }
+  }
 
   const save = async () => {
     setBusy(true)
@@ -74,6 +98,9 @@ export default function GroupingEditor({ onClose, onSaved }) {
         </div>
 
         <div className="modal-actions">
+          <button className="ghost ai" onClick={suggestAI} disabled={aiBusy || !loaded}>
+            {aiBusy ? 'Thinking…' : '✨ Suggest with AI'}
+          </button>
           <button className="ghost" onClick={quickFailureFamily}>
             Quick: group all failures → “Equipment Failure”
           </button>
@@ -81,6 +108,8 @@ export default function GroupingEditor({ onClose, onSaved }) {
             Clear all
           </button>
         </div>
+
+        {aiError && <div className="banner bad">{aiError}</div>}
 
         {!loaded ? (
           <div className="empty small">Loading…</div>

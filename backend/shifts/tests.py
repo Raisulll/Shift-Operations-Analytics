@@ -2,6 +2,7 @@ import io
 
 import pandas as pd
 from django.test import TestCase
+from rest_framework.test import APITestCase
 
 from shifts import analysis, cleaning, grouping
 from shifts.cleaning import clean_rows, summarize
@@ -158,6 +159,80 @@ class AnalysisTests(TestCase):
         for ins in result:
             self.assertIn("title", ins)
             self.assertIn("detail", ins)
+
+
+def _save_rec(day, start, end, hours, reason, valid=True):
+    """Persist a ShiftRecord for the API integration tests."""
+    from datetime import datetime, timezone
+
+    def dt(s):
+        return datetime.fromisoformat(s).replace(tzinfo=timezone.utc)
+
+    return ShiftRecord.objects.create(
+        source_row=0,
+        day_date=datetime.fromisoformat(day).date(),
+        start=dt(start),
+        end=dt(end),
+        hours=hours,
+        reason=reason,
+        is_valid=valid,
+    )
+
+
+class ApiTests(APITestCase):
+    """End-to-end checks that the REST endpoints wire the analysis layer up
+    correctly, respect filters, and round-trip grouping. Seeds a tiny, fully
+    deterministic dataset so the asserted numbers are exact."""
+
+    def setUp(self):
+        # 2 h productive (Training) + 2 h non-productive failure (Breakdown).
+        _save_rec("2025-10-01", "2025-10-01T08:00:00", "2025-10-01T10:00:00", 2.0, "Training")
+        _save_rec("2025-10-01", "2025-10-01T10:00:00", "2025-10-01T12:00:00", 2.0, "Breakdown")
+
+    def test_reasons_are_data_derived(self):
+        r = self.client.get("/api/reasons")
+        self.assertEqual(r.status_code, 200)
+        names = {x["reason"] for x in r.json()["reasons"]}
+        self.assertEqual(names, {"Training", "Breakdown"})
+
+    def test_efficiency_overall(self):
+        r = self.client.get("/api/analysis/efficiency")
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.json()["overall"]["efficiency"], 50.0)
+
+    def test_efficiency_respects_reason_filter(self):
+        r = self.client.get("/api/analysis/efficiency", {"reasons": "Breakdown"})
+        self.assertEqual(r.json()["overall"]["efficiency"], 0.0)  # breakdown only
+
+    def test_reliability_metrics_are_consistent(self):
+        r = self.client.get("/api/analysis/reliability").json()
+        self.assertEqual(r["failure_count"], 1)
+        self.assertEqual(r["mttr_hours"], 2.0)
+        self.assertEqual(r["mtbf_hours"], 2.0)
+        self.assertEqual(r["availability_percent"], 50.0)
+        self.assertIn("Breakdown", r["failure_reasons"])
+
+    def test_grouping_put_then_get_roundtrips(self):
+        put = self.client.put(
+            "/api/grouping", {"groups": {"Equipment Failure": ["Breakdown"]}}, format="json"
+        )
+        self.assertEqual(put.status_code, 200)
+        got = self.client.get("/api/grouping").json()
+        self.assertIn("Breakdown", got["groups"].get("Equipment Failure", []))
+
+    def test_export_csv_is_a_download(self):
+        r = self.client.get("/api/dataset/export.csv")
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r["Content-Type"], "text/csv")
+        self.assertIn("attachment", r["Content-Disposition"])
+        body = r.content.decode()
+        self.assertTrue(body.startswith("source_row,day_date"))
+        self.assertIn("Breakdown", body)
+
+    def test_quality_report_shape(self):
+        r = self.client.get("/api/quality-report").json()
+        self.assertIn("summary", r)
+        self.assertEqual(r["summary"]["total"], 2)
 
 
 class GroupingTests(TestCase):

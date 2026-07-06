@@ -31,3 +31,7 @@ services:
         sync: false   # paste the Supabase Session-pooler URL in the dashboard
       - key: CORS_ALLOWED_ORIGINS
         sync: false   # set to your Vercel URL, e.g. https://your-app.vercel.app
+      - key: GROQ_API_KEY
+        sync: false   # optional: enables the AI "Suggest grouping" feature (free Groq key)
+      - key: GROQ_MODEL
+        value: "llama-3.3-70b-versatile"
