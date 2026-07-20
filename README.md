@@ -69,7 +69,7 @@ and is exposed as a REST API the frontend consumes.
 | Backend | Django 6 + Django REST Framework |
 | Data | pandas |
 | Database | SQLite (local dev) · PostgreSQL — Supabase (production) |
-| AI (optional) | Google Groq (LLM) — free tier, called over the standard library |
+| AI (optional) | Groq (LLM) — free tier, called over the standard library |
 | Tests | Django test runner (backend) · Vitest + React Testing Library (frontend) |
 
 ## Project structure
@@ -211,6 +211,7 @@ Base path: `/api`
 | GET | `/analysis/ai-summary` | AI executive summary of the current view (Groq). 503 if not configured |
 | GET | `/dataset/export.csv` | Download the current (filtered) records as CSV |
 | POST | `/dataset/upload` | Upload a CSV/Excel/JSON file (form field `file`); replaces the active dataset |
+| POST | `/dataset/reset` | Discard any uploaded data and reload the bundled default dataset |
 
 All GET analysis endpoints accept the same filter params as `/dataset`.
 

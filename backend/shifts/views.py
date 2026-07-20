@@ -283,9 +283,9 @@ def suggest_grouping(request):
     """AI-suggested grouping of the active dataset's reasons.
 
     Returns {groups: {label: [reasons]}, available_reasons: [...]} exactly like
-    GET /grouping, but the groups are proposed by Claude rather than saved. The
+    GET /grouping, but the groups are proposed by the LLM rather than saved. The
     frontend pre-fills the editor with these; nothing persists until the user
-    saves. Requires ANTHROPIC_API_KEY on the server.
+    saves. Requires GROQ_API_KEY on the server.
     """
     from . import ai
 

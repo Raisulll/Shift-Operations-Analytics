@@ -7,7 +7,7 @@ excluding it from analysis otherwise. Nothing is silently dropped; every flagged
 row survives into the quality report.
 
 Design rule for the HOURS column: START/END is the source of truth. In the
-sample data 47 of 51 rows have HOURS == (END - START) to within rounding, so
+sample data 44 of 51 rows have HOURS == (END - START) to within rounding, so
 when they disagree we trust the timestamps and recompute HOURS.
 """
 

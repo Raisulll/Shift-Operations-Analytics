@@ -21,6 +21,7 @@ db.sqlite3-journal
 .env.*
 !.env.example
 
+
 # --- Node / React (frontend, Day-3) ---
 node_modules/
 dist/

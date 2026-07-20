@@ -3,21 +3,44 @@ import { fmtShort, fmtLong } from '../dates'
 // Activity heatmap: how many shifts are active in each hour of the day, per date.
 // Directly answers "help users understand operational activity over time."
 export default function DowntimeHeatmap({ segments }) {
-  const dates = [...new Set((segments || []).map((s) => s.date))].sort()
+  // The calendar day after an ISO date string (for overnight shifts that spill
+  // past midnight into the next column).
+  const nextDate = (iso) => {
+    const [y, m, d] = iso.split('-').map(Number)
+    const dt = new Date(Date.UTC(y, m - 1, d + 1))
+    return dt.toISOString().slice(0, 10)
+  }
+
+  // Column set: every segment's own date, plus the spillover day of any
+  // overnight shift so its after-midnight hours always have a column to land in.
+  const dateSet = new Set()
+  for (const s of segments || []) {
+    dateSet.add(s.date)
+    if (s.end_min > 1440) dateSet.add(nextDate(s.date))
+  }
+  const dates = [...dateSet].sort()
   if (!dates.length) return null
 
   const dateIdx = Object.fromEntries(dates.map((d, i) => [d, i]))
   // grid[hour][dateIndex] = count of shifts active during that hour.
   const grid = Array.from({ length: 24 }, () => Array(dates.length).fill(0))
   let max = 0
+  const paint = (col, startH, endH) => {
+    if (col === undefined) return
+    for (let h = startH; h < endH && h < 24; h++) {
+      grid[h][col] += 1
+      if (grid[h][col] > max) max = grid[h][col]
+    }
+  }
   for (const s of segments) {
     const col = dateIdx[s.date]
     if (col === undefined) continue
     const startH = Math.floor(s.start_min / 60)
-    const endH = Math.ceil(Math.min(s.end_min, 1440) / 60) // clamp to the day
-    for (let h = startH; h < endH && h < 24; h++) {
-      grid[h][col] += 1
-      if (grid[h][col] > max) max = grid[h][col]
+    // Fill this date up to midnight (or the shift's end, whichever comes first).
+    paint(col, startH, Math.ceil(Math.min(s.end_min, 1440) / 60))
+    // Overnight shift: paint the after-midnight hours into the next day's column.
+    if (s.end_min > 1440) {
+      paint(dateIdx[nextDate(s.date)], 0, Math.ceil((s.end_min - 1440) / 60))
     }
   }
 

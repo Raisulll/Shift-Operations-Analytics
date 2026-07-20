@@ -94,7 +94,6 @@ WSGI_APPLICATION = 'config.wsgi.application'
 
 
 # Database
-# https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
 # Reads DATABASE_URL when present (Render provides one for the Postgres add-on);
 # otherwise falls back to a local SQLite file so dev needs zero setup.
@@ -106,8 +105,6 @@ DATABASES = {
 }
 
 
-# Password validation
-# https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators
 
 AUTH_PASSWORD_VALIDATORS = [
     {
