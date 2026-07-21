@@ -1,0 +1,502 @@
+TOTAL SLIDES: 29
+
+======================================================================
+SLIDE 1
+======================================================================
+[TEXT] ◰
+[TEXT] Shift Operations
+Analytics
+Turning messy shift logs into operational decisions
+[TEXT] React 19   ·   Django 6 + DRF   ·   pandas   ·   PostgreSQL   ·   Groq (optional AI)
+Md Raisul Islam Rahad    —    Full-stack technical assignment · Round 3
+Live:  shift-operations-analytics.vercel.app      API:  shift-analytics-api.onrender.com
+[NOTES] I built a web app that takes raw, deliberately messy shift records, cleans them, and turns them into operational insight a plant manager can act on: efficiency, downtime patterns, reliability. All analysis runs server-side in Python; the frontend only renders. I'll walk through the problem, the architecture, and the key engineering decisions.
+
+======================================================================
+SLIDE 2
+======================================================================
+[TEXT] I
+[TEXT] PART I
+[TEXT] The brief,
+delivered live
+[TEXT] —  Seven requirements, each shown in the running app
+—  Live and public — scan the QR to follow along
+—  The 4-day finding hiding inside the labels
+[NOTES] Section I: The problem
+& the approach.
+
+======================================================================
+SLIDE 3
+======================================================================
+[TEXT] 01 · THE PROBLEM
+[TEXT] THE BRIEF, DELIVERED LIVE
+[TEXT] It's not a charting task — it's a trust-the-data task
+[TEXT] Shift Operations Analytics  ·  Md Raisul Islam Rahad
+[TEXT] 01 / 21
+[TEXT] Given shift records with deliberate operational inconsistencies, clean the data, visualize shift patterns, score efficiency, detect recurring breakdown periods, and surface actionable insights — and stay useful when new categories appear or are grouped.
+[TEXT] Dirty data
+Invalid dates, bad/missing timestamps, negative & mismatched hours, duplicates, overnight shifts — silently dropping rows hides the truth.
+[TEXT] Meaningful analysis
+Efficiency, multi-day streaks, reliability — each needs a defensible definition, not just a number.
+[TEXT] Extensibility
+No reason list can be hardcoded; grouping must re-flow every chart, streak and score.
+[NOTES] The assignment isn't about drawing charts — it's about handling data you can't trust and building believable analysis on top of it. Those three challenges drove every design decision.
+
+======================================================================
+SLIDE 4
+======================================================================
+[TEXT] 02 · THE BRIEF → DELIVERED
+[TEXT] THE BRIEF, DELIVERED LIVE
+[TEXT] Every requirement delivered — each shown live in the next slides
+[TEXT] Shift Operations Analytics  ·  Md Raisul Islam Rahad
+[TEXT] 02 / 21
+[TABLE] From the brief | Delivered as | Where to see it
+[TABLE] Detect, document & handle inconsistencies | 10-issue cleaning pipeline — recover or exclude, nothing silently dropped | Data Quality report
+[TABLE] Filter & analyse by attribute combinations | Shared apply_filters(): date range, reasons, validity — on every endpoint | Filter bar, all panels
+[TABLE] Shift analysis chart with all reasons | Custom 36-hour chart, one coloured bar per shift, every reason included | Shift Analysis panel
+[TABLE] Identify meaningful breakdown streaks | Configurable consecutive-day detection with severity; assumptions documented | Streaks panel + README
+[TABLE] Efficiency = (Productive ÷ Total) × 100 | Implemented literally — 86.8% overall + daily trend; reason set configurable | KPI row + trend chart
+[TABLE] At least 3 actionable insights | 5+ insights computed live from the data, never hardcoded | Insights panel
+[TABLE] Stays useful as categories appear / group | Reasons derived from data; grouping re-flows every chart, streak & score | Edit groups / upload
+[TABLE] React frontend · Django backend · no hardcoding | React 19 + Vite SPA over Django 6 + DRF; all policy lives in config / env | GitHub repo + live app
+[NOTES] (NO NOTES SLIDE)
+
+======================================================================
+SLIDE 5
+======================================================================
+[TEXT] 03 · LIVE IN PRODUCTION
+[TEXT] THE BRIEF, DELIVERED LIVE
+[TEXT] Deployed and public — the panel can open it during this talk
+[TEXT] Shift Operations Analytics  ·  Md Raisul Islam Rahad
+[TEXT] 03 / 21
+[TEXT] Live app   shift-operations-analytics.vercel.app     ·     API   shift-analytics-api.onrender.com     ·     Code   github.com/Raisulll/Shift-Operations-Analytics
+[TEXT] Scan to open the live app
+[NOTES] (NO NOTES SLIDE)
+
+======================================================================
+SLIDE 6
+======================================================================
+[TEXT] 04 · REQUIREMENT 1 · DATA QUALITY
+[TEXT] THE BRIEF, DELIVERED LIVE
+[TEXT] Detect, document and handle inconsistencies — nothing dropped in silence
+[TEXT] Shift Operations Analytics  ·  Md Raisul Islam Rahad
+[TEXT] 04 / 21
+[TEXT] The Data Quality report lists every flagged row with its issue and the action taken: recovered rows keep their derived values, excluded rows stay visible with the reason. Ten issue types are detected, and the full catalogue is documented in the README.
+[NOTES] (NO NOTES SLIDE)
+
+======================================================================
+SLIDE 7
+======================================================================
+[TEXT] 05 · REQUIREMENT 2 · FILTER & ANALYSE
+[TEXT] THE BRIEF, DELIVERED LIVE
+[TEXT] Filter and analyse by any combination of attributes
+[TEXT] Shift Operations Analytics  ·  Md Raisul Islam Rahad
+[TEXT] 05 / 21
+[TEXT] One shared filter — date range, reasons, validity — drives every panel and the CSV export, so a filtered view and its download always agree. Combinations apply everywhere at once: charts, streaks, score and insights.
+[NOTES] (NO NOTES SLIDE)
+
+======================================================================
+SLIDE 8
+======================================================================
+[TEXT] 06 · REQUIREMENT 3 · SHIFT CHART
+[TEXT] THE BRIEF, DELIVERED LIVE
+[TEXT] A 36-hour axis keeps overnight shifts as one continuous bar
+[TEXT] Shift Operations Analytics  ·  Md Raisul Islam Rahad
+[TEXT] 06 / 21
+[TEXT] Date on X, time of day on Y, one coloured bar per shift. A 22:00 → 06:00 shift crosses midnight, so the axis runs 12 AM → next 12 PM (36 h): an overnight bar simply passes the 24-hour line — see Oct 4 — instead of wrapping or breaking.
+[NOTES] A subtle correctness issue that's easy to get wrong. Real plants run night shifts, so I extended the axis to 36 hours. A bar's start and end are just minutes from midnight, so a cross-midnight shift naturally draws as one continuous bar past the 24-hour mark instead of wrapping around.
+
+======================================================================
+SLIDE 9
+======================================================================
+[TEXT] 07 · REQUIREMENT 4 · BREAKDOWN STREAKS
+[TEXT] THE BRIEF, DELIVERED LIVE
+[TEXT] Identify meaningful breakdown streaks — configurable and documented
+[TEXT] Shift Operations Analytics  ·  Md Raisul Islam Rahad
+[TEXT] 07 / 21
+[TEXT] A streak is N or more consecutive calendar days, each containing at least one record from a configurable target set — reported with span, length and severity in downtime hours. Presets switch the definition live; the assumptions are written down, not implied.
+[NOTES] (NO NOTES SLIDE)
+
+======================================================================
+SLIDE 10
+======================================================================
+[TEXT] 08 · THE KEY FINDING
+[TEXT] THE BRIEF, DELIVERED LIVE
+[TEXT] Grouping the labels reveals a 4-day run the raw label hides
+[TEXT] Shift Operations Analytics  ·  Md Raisul Islam Rahad
+[TEXT] 08 / 21
+[TEXT] Literal “Breakdown”
+[TEXT] Failure family
+[TEXT] Oct 3
+[TEXT] Oct 6
+[TEXT] Oct 9
+[TEXT] Oct 12
+[TEXT] Oct 15
+[TEXT] Oct 18
+[TEXT] Oct 21
+[TEXT] 2-day blip
+[TEXT] 2d
+[TEXT] 4-DAY RUN (Oct 7–10)
+[TEXT] 2d
+[TEXT] Literal Breakdown label → one 2-day blip.   Widen to the failure family (Breakdown + Power Failure + Machine Jam + Unknown Failure) → a 4-day downtime run emerges.
+➡  Concrete, data-driven evidence for why categories must be groupable.
+[NOTES] My favourite result. If you only look at the literal 'Breakdown' reason, you see a minor two-day blip. But those failures are logged under several labels. Group them into a failure family and a four-day continuous downtime run emerges — the kind of thing a manager must treat as one incident. That's the argument for the whole extensibility requirement, made with the data itself.
+
+======================================================================
+SLIDE 11
+======================================================================
+[TEXT] 09 · REQUIREMENT 5 · EFFICIENCY SCORE
+[TEXT] THE BRIEF, DELIVERED LIVE
+[TEXT] (Productive ÷ Total) × 100 — implemented exactly as specified
+[TEXT] Shift Operations Analytics  ·  Md Raisul Islam Rahad
+[TEXT] 09 / 21
+[TEXT] 86.8% overall on the bundled data, plus a daily trend. I followed the formula literally — only Breakdown and Unknown Failure count as non-productive — then made the set configurable, and gave streaks a broader failure family so downtime analysis is not limited by the formula.
+[NOTES] (NO NOTES SLIDE)
+
+======================================================================
+SLIDE 12
+======================================================================
+[TEXT] 10 · REQUIREMENT 6 · ACTIONABLE INSIGHTS
+[TEXT] THE BRIEF, DELIVERED LIVE
+[TEXT] Five-plus insights a plant manager can act on — computed, never hardcoded
+[TEXT] Shift Operations Analytics  ·  Md Raisul Islam Rahad
+[TEXT] 10 / 21
+[TEXT] Biggest downtime driver, peak failure window, worst day, data-quality signal and more — each generated live from the current filtered dataset, so the insights update the moment the data, the filters or the grouping change.
+[NOTES] (NO NOTES SLIDE)
+
+======================================================================
+SLIDE 13
+======================================================================
+[TEXT] 11 · REQUIREMENT 7 · BUILT FOR CHANGE
+[TEXT] THE BRIEF, DELIVERED LIVE
+[TEXT] New categories appear, related ones group — every view re-flows
+[TEXT] Shift Operations Analytics  ·  Md Raisul Islam Rahad
+[TEXT] 11 / 21
+[TEXT] Reasons are derived from the data, never hardcoded, and colours are assigned deterministically. Merge related reasons in the group editor and every chart, streak and score re-aggregates instantly — proven live by uploading sample_new_categories.
+[NOTES] (NO NOTES SLIDE)
+
+======================================================================
+SLIDE 14
+======================================================================
+[TEXT] II
+[TEXT] PART II
+[TEXT] Beyond
+the brief
+[TEXT] —  Reliability KPIs — MTBF, MTTR, Availability
+—  Optional AI that structurally cannot fabricate
+—  Upload any format, export a filtered CSV
+[NOTES] Section II: Cleaning
+messy data.
+
+======================================================================
+SLIDE 15
+======================================================================
+[TEXT] 12 · RELIABILITY KPIS
+[TEXT] BEYOND THE BRIEF
+[TEXT] Speak the maintenance team's language — no black boxes
+[TEXT] Shift Operations Analytics  ·  Md Raisul Islam Rahad
+[TEXT] 12 / 21
+[TEXT] MTTR  =  downtime hours ÷ failure count            (mean time to repair)
+MTBF  =  uptime  hours ÷ failure count            (mean time between failures)
+Availability  =  uptime ÷ total × 100  =  MTBF ÷ (MTBF + MTTR) × 100
+[TEXT] Reliability
+[TEXT] Standard maintenance KPIs computed over unplanned failures
+[TEXT] 7.38 h
+MTBF
+Mean Time Between Failures
+[TEXT] 2.77 h
+MTTR
+Mean Time To Repair
+[TEXT] 72.7%
+Availability
+Uptime Share
+[TEXT] 14
+Failures
+38.8 h Downtime
+[NOTES] These weren't required — I added them because reliability is the language maintenance teams actually speak. The three tie together algebraically, and every tile explains its own formula on hover so nothing feels like a magic number.
+
+======================================================================
+SLIDE 16
+======================================================================
+[TEXT] 13 · AI FEATURES
+[TEXT] BEYOND THE BRIEF
+[TEXT] Useful — and boxed in so they can't fabricate data
+[TEXT] Shift Operations Analytics  ·  Md Raisul Islam Rahad
+[TEXT] 13 / 21
+[TEXT] Suggest grouping
+[TEXT] An LLM proposes reason groups, merging synonyms, typos and casing variants.
+[TEXT] Output is validated against the real reason list — hallucinated reasons are dropped; nothing persists until you approve.
+[TEXT] Executive summary
+[TEXT] A plain-language briefing of the current filtered view for leadership.
+[TEXT] The model only sees numbers computed server-side — never raw rows — so it cannot invent figures.
+[NOTES] AI is a genuine risk if it can invent data, so I boxed it in. The grouping suggestion is checked against the actual reasons — it physically can't introduce a category that isn't in your data. And the summary model never sees a raw row; it only rephrases numbers I already computed. Both degrade cleanly without a key.
+
+======================================================================
+SLIDE 17
+======================================================================
+[TEXT] 14 · UPLOAD & EXPORT
+[TEXT] BEYOND THE BRIEF
+[TEXT] Any dataset in — CSV, TSV, Excel or JSON — filtered CSV out
+[TEXT] Shift Operations Analytics  ·  Md Raisul Islam Rahad
+[TEXT] 14 / 21
+[TEXT] The loader is format-agnostic and re-runs the full cleaning pipeline on every upload, so a brand-new dataset gets the same treatment as the bundled one. The export honours the active filters: what you see is exactly what you download.
+[TEXT] Upload
+CSV · TSV · Excel · JSON
+[TEXT] Clean
+Full pipeline re-runs on every upload
+[TEXT] Export
+Filtered CSV — exactly what you see
+[NOTES] (NO NOTES SLIDE)
+
+======================================================================
+SLIDE 18
+======================================================================
+[TEXT] III
+[TEXT] PART III
+[TEXT] How
+it’s built
+[TEXT] —  One rule: all logic server-side, the UI renders
+—  Recover-or-exclude cleaning with an audit trail
+—  Tested, deployed, extensible by construction
+[NOTES] Section III: Analysis
+& the key finding.
+
+======================================================================
+SLIDE 19
+======================================================================
+[TEXT] 15 · ARCHITECTURE
+[TEXT] HOW IT’S BUILT
+[TEXT] One rule: all logic on the backend, the UI only renders
+[TEXT] Shift Operations Analytics  ·  Md Raisul Islam Rahad
+[TEXT] 15 / 21
+[TEXT] 👤 User
+Plant manager
+[TEXT] FRONTEND · VERCEL
+[TEXT] React 19 + Vite SPA
+
+useDashboardData hook
+Recharts / SVG panels
+
+Pure renderer —
+no business logic
+[TEXT] BACKEND · RENDER
+[TEXT] Django 6 + DRF
+REST API
+[TEXT] pandas pipeline
+cleaning + analysis
+(single source of truth)
+[TEXT] 🗄 PostgreSQL
+Supabase
+[TEXT] Groq LLM
+optional
+[TEXT] /api HTTPS
+[NOTES] Clean separation. The React app never computes a metric — it asks the API. That guarantees the numbers on screen and in a CSV export always agree, and I can test all logic in Python. The Groq box is dashed because it's fully optional — without a key the app behaves identically minus two buttons.
+
+======================================================================
+SLIDE 20
+======================================================================
+[TEXT] 16 · CLEANING PIPELINE
+[TEXT] HOW IT’S BUILT
+[TEXT] Detect → recover-or-exclude → gate, with a full audit trail
+[TEXT] Shift Operations Analytics  ·  Md Raisul Islam Rahad
+[TEXT] 16 / 21
+[TEXT] Raw row
+5 fields
+[TEXT] Parse
+multi-format
+tz-aware
+[TEXT] START / END
+valid?
+[TEXT] HOURS =
+END−START?
+[TEXT] Date ok? /
+duplicate?
+[TEXT] Validity
+gate
+[TEXT] is_valid = true
+charts · streaks · score
+[TEXT] is_valid = false
+quality report only
+[TEXT] RECOVER lane
+row is fixed, then continues
+[TEXT] derive START
+= END − HOURS
+[TEXT] recompute HOURS
+from timestamps
+[TEXT] recover date
+from START
+[TEXT] EXCLUDE → report
+invalid ts · END<START · bad date · duplicate
+[TEXT] Every row emits  {code, detail, action}:
+INVALID_DATE · INVALID_START/END · MISSING_START/END · NEGATIVE_HOURS · HOURS_MISMATCH · END_BEFORE_START · CROSS_MIDNIGHT · DUPLICATE
+[NOTES] This is the heart of the project. Walk the happy path left to right, then point at one recovery branch — a missing START derived from END minus HOURS — and one exclusion branch. The output is a validity flag plus a list of issues, so a row survives into the report even when excluded from analysis.
+
+======================================================================
+SLIDE 21
+======================================================================
+[TEXT] 17 · KEY DECISION
+[TEXT] HOW IT’S BUILT
+[TEXT] When HOURS and timestamps disagree, I trust the timestamps
+[TEXT] Shift Operations Analytics  ·  Md Raisul Islam Rahad
+[TEXT] 17 / 21
+[TEXT] HOURS = 18        but        END − START = 4.0 h        → which is right?
+[TEXT] 17 / 21
+rows already agree
+within rounding
+[TEXT] ✓  Timestamps are internally consistent  —  and they drive the timeline / chart axis anyway.
+[TEXT] ✓  HOURS is a single scalar  —  — the easy field to fumble on manual data entry.
+[TEXT] ✓  Documented, defensible assumption  —  written in the README and the code, not a silent choice.
+[TEXT] 📌  A decision I'd flag to a stakeholder, not bury in code — if HOURS were authoritative it's a one-function change. And the data model keeps the audit trail: every row stores its raw values, recomputed fields, is_valid flag and issue list.
+[NOTES] This is a judgement call and I made it deliberately. I measured it — 44 of 51 rows already agree with the timestamps — so treating timestamps as authoritative recovers the mismatched rows instead of trusting an easily mistyped number. And I documented it.
+
+======================================================================
+SLIDE 22
+======================================================================
+[TEXT] 18 · EXTENSIBILITY, BY CONSTRUCTION
+[TEXT] HOW IT’S BUILT
+[TEXT] No reason is hardcoded — new categories flow everywhere for free
+[TEXT] Shift Operations Analytics  ·  Md Raisul Islam Rahad
+[TEXT] 18 / 21
+[TEXT] Dataset
+any reasons
+[TEXT] Reasons derived
+at runtime
+SELECT DISTINCT
+[TEXT] Filters
+[TEXT] Chart legend
++ colours
+[TEXT] Grouping
+editor
+[TEXT] Re-aggregate charts · streaks · score · filters
+[TEXT] Proof:  upload sample_new_categories → brand-new reasons (Sensor Fault, Tool Change, Calibration, Shift Handover) appear in filters, colours, legend and grouping with zero code changes.
+Colours are assigned deterministically from the sorted reason list — a new reason just takes the next colour. Policy (non-productive set, groups, streak targets) is env-driven.
+[NOTES] I treated this as a hard constraint. There is no list of reasons anywhere in the code. To prove it, I ship a dataset with reasons that don't exist in the original — you upload it and they flow through filters, colours, legend and grouping with no code change. That's the demo I'd run live.
+
+======================================================================
+SLIDE 23
+======================================================================
+[TEXT] 19 · TESTING & VERIFICATION
+[TEXT] HOW IT’S BUILT
+[TEXT] The risky parts — cleaning and analysis — carry the tests
+[TEXT] Shift Operations Analytics  ·  Md Raisul Islam Rahad
+[TEXT] 19 / 21
+[TEXT] Backend — 25 tests (unit + DRF integration)
+Every cleaning issue code (recover vs exclude)
+Efficiency exclusion + configurable non-productive set
+Consecutive-day streak logic + configurable targets
+Overnight-axis handling · insight generation
+Reason grouping · reliability math
+API integration: exact numbers, filters, grouping round-trip, CSV download
+[TEXT] Frontend — Vitest + RTL
+Filter chips render per reason
+Group mode collapses reasons into group chips
+Toggling a group selects its member reasons
+Reliability tiles + empty state
+[TEXT] Every headline number is reproducible from the bundled data:  51 → 49 valid  ·  86.8% efficiency  ·  the streaks above  — I re-ran the real pipeline to confirm.
+[NOTES] The cleaning rules and analysis are the risky parts, so the tests concentrate there — including API integration tests that assert exact numbers. Every figure I've shown is reproducible from the bundled data.
+
+======================================================================
+SLIDE 24
+======================================================================
+[TEXT] 20 · DEPLOYMENT
+[TEXT] HOW IT’S BUILT
+[TEXT] It's live — same code on SQLite locally and Postgres in prod
+[TEXT] Shift Operations Analytics  ·  Md Raisul Islam Rahad
+[TEXT] 20 / 21
+[TEXT] 🌐 Browser
+[TEXT] Vercel
+static SPA
+(React build)
+[TEXT] Render
+gunicorn + Django
+WhiteNoise static
+[TEXT] Supabase
+PostgreSQL
+[TEXT] /api HTTPS
+[TEXT] pooler :5432
+[TEXT] Same code, two databases — engine chosen from DATABASE_URL via dj-database-url. No schema changes.
+Config via env vars (render.yaml); secrets never in code.
+RENDER_EXTERNAL_HOSTNAME auto-trusted; CORS locked to the Vercel origin.
+[NOTES] It's live, not just local. Frontend on Vercel, API on Render, data on Supabase Postgres. The same Django code runs on SQLite locally and Postgres in production — I flip one environment variable.
+
+======================================================================
+SLIDE 25
+======================================================================
+[TEXT] 21 · DEMO FLOW & LIMITS
+[TEXT] HOW IT’S BUILT
+[TEXT] What I'd show live — and where I know it would strain
+[TEXT] Shift Operations Analytics  ·  Md Raisul Islam Rahad
+[TEXT] 21 / 21
+[TEXT] Live demo (≈ 3 min)
+1.  Dashboard + KPI row (efficiency, valid/total).
+2.  Quality report: a recovered row and an excluded duplicate.
+3.  Streak preset toggle → the 4-day run appears. (the money moment)
+4.  Upload sample_new_categories → new reasons everywhere, no code change.
+5.  Edit groups / ✨ Suggest with AI → charts re-aggregate.
+6.  AI summary + export CSV.
+[TEXT] Honest limitations / next steps
+Scale: move heavy aggregation into SQL + paginate large uploads (pipeline is in-memory today).
+Auth & multi-user: active dataset is a singleton → add per-user workspaces.
+Streaming AI summary + caching for identical views.
+Drill-down from a Pareto bar to its records.
+I'd rather show I know the edges of my solution than pretend it has none.
+[NOTES] If I get to demo, this is my order — step 3 is the one to land; it makes the extensibility argument visually in two clicks. And I name the limits honestly: the biggest is scale — the pipeline is in-memory today, fine for shift logs, but I'd push aggregation into the database for millions of rows.
+
+======================================================================
+SLIDE 26
+======================================================================
+[TEXT] IN SUMMARY
+[TEXT] Summary
+[TEXT] Messy data, handled honestly  —  10 issue types, recover-or-exclude, full audit trail. Nothing silently dropped.
+[TEXT] Defensible analytics  —  Efficiency, streaks, reliability — written assumptions, reproducible numbers.
+[TEXT] Genuinely extensible  —  No hardcoded categories; grouping re-flows everything, proven with new-category data.
+[TEXT] Engineered like production  —  Server-side logic, live deploy, optional AI that can't fabricate.
+[TEXT] Thank you — happy to dive into any layer.
+Md Raisul Islam Rahad    ·    github.com/raisulll    ·    shift-operations-analytics.vercel.app
+[NOTES] To wrap: the project is really about trusting the data and the analysis on top of it. I handled dirty data transparently, built metrics I can defend, made it extensible by construction, and shipped it like production code. Happy to go deeper anywhere you'd like.
+
+======================================================================
+SLIDE 27
+======================================================================
+[TEXT] ?
+[TEXT] APPENDIX
+[TEXT] Anticipated
+questions
+[TEXT] —  Prepared answers to the questions a technical panel is most likely to ask.
+[NOTES] (NO NOTES SLIDE)
+
+======================================================================
+SLIDE 28
+======================================================================
+[TEXT] Q&A · ARCHITECTURE & DATA
+[TEXT] APPENDIX · Q&A PREP
+[TEXT] Anticipated questions — architecture & data
+[TEXT] Shift Operations Analytics  ·  Md Raisul Islam Rahad
+[TEXT] A1
+[TEXT] Q  Why put all analysis on the backend, not the client?
+A  One source of truth, testable in isolation, reusable by any client, and heavy pandas work stays off the browser. Trade-off: a round-trip per interaction — negligible at this scale.
+[TEXT] Q  Why SQLite locally but Postgres in production?
+A  Zero-setup dev vs durable, concurrent prod. dj-database-url picks the engine from DATABASE_URL — identical models and migrations, no code change.
+[TEXT] Q  What happens when HOURS and the timestamps disagree?
+A  Timestamps win — HOURS is recomputed. One explicit rule resolves a whole class of conflicts consistently, and it’s configurable if the opposite were wanted.
+[TEXT] Q  How do you handle a brand-new failure reason?
+A  It flows through automatically — reasons are derived from data, colours are deterministic, grouping and policy live in config. Demoed by sample_new_categories.
+[NOTES] (NO NOTES SLIDE)
+
+======================================================================
+SLIDE 29
+======================================================================
+[TEXT] Q&A · SCALE, TESTING & AI
+[TEXT] APPENDIX · Q&A PREP
+[TEXT] Anticipated questions — scale, testing & AI
+[TEXT] Shift Operations Analytics  ·  Md Raisul Islam Rahad
+[TEXT] A2
+[TEXT] Q  How would this scale to millions of rows?
+A  Move cleaning to a batch / streaming job, store aggregates, and paginate. The clean separation — pipeline → stored records → analysis — means the API and UI wouldn’t change.
+[TEXT] Q  What stops the AI features from fabricating numbers?
+A  The model only sees pre-computed metrics, never raw rows; grouping output is validated against the real reason list. Without a key the features disable cleanly.
+[TEXT] Q  How is the cross-midnight shift handled correctly?
+A  The backend emits minutes-from-midnight (end can exceed 1440) and a crosses_midnight flag; the chart uses a 36-hour axis so an overnight shift is one continuous bar.
+[TEXT] Q  What would you improve with more time?
+A  Auth & per-user datasets, background jobs for large uploads, caching of analysis responses, and end-to-end (Playwright) tests over the existing coverage.
+[NOTES] (NO NOTES SLIDE)
